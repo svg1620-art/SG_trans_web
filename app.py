@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from functools import wraps
 
-from flask import Flask, request, jsonify, session, send_file, render_template_string
+from flask import Flask, request, jsonify, session, render_template_string
 from openai import OpenAI
 
 logging.basicConfig(level=logging.INFO)
@@ -88,7 +88,7 @@ def transcribe(path):
     logger.info(f"File size: {size_mb:.1f} MB")
     if size_mb <= CHUNK_MB:
         return transcribe_single(path), 1
-    chunks, split = split_audio(path)
+    chunks, _ = split_audio(path)
     try:
         parts = [transcribe_single(c) for c in chunks]
         return " ".join(parts), len(chunks)
@@ -181,18 +181,6 @@ def transcribe_route():
         transcript, n_chunks = transcribe(tmp.name)
         summary = summarize(transcript)
 
-        result_text = (
-            "==================================================\n"
-            "САММЕРИ И АНАЛИЗ\n"
-            "==================================================\n\n"
-            + summary +
-            "\n\n\n"
-            "==================================================\n"
-            "ПОЛНАЯ ТРАНСКРИПЦИЯ\n"
-            "==================================================\n\n"
-            + transcript
-        )
-
         user = session["user"]
         if user not in history_store:
             history_store[user] = []
@@ -201,9 +189,6 @@ def transcribe_route():
             "filename": file.filename,
             "date": datetime.now().strftime("%d.%m.%Y %H:%M"),
             "chunks": n_chunks,
-            "summary": summary,
-            "transcript": transcript,
-            "result": result_text,
         }
         history_store[user].insert(0, entry)
         if len(history_store[user]) > 50:
@@ -215,7 +200,7 @@ def transcribe_route():
             "summary": summary,
             "transcript": transcript,
             "chunks": n_chunks,
-            "entry_id": entry["id"],
+            "filename": file.filename,
         })
     except Exception as e:
         logger.exception(f"Transcribe route error: {e}")
@@ -232,21 +217,7 @@ def transcribe_route():
 def history():
     user = session["user"]
     items = history_store.get(user, [])
-    return jsonify({"history": [{"id": h["id"], "filename": h["filename"], "date": h["date"]} for h in items]})
-
-
-@app.route("/api/download/<entry_id>")
-@login_required
-def download(entry_id):
-    user = session["user"]
-    items = history_store.get(user, [])
-    entry = next((h for h in items if h["id"] == entry_id), None)
-    if not entry:
-        return jsonify({"error": "Не найдено"}), 404
-    tmp = tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="w", encoding="utf-8")
-    tmp.write(entry["result"])
-    tmp.close()
-    return send_file(tmp.name, as_attachment=True, download_name="transcription.txt")
+    return jsonify({"history": items})
 
 
 HTML = """<!DOCTYPE html>
@@ -274,9 +245,7 @@ body { font-family: 'Onest', sans-serif; background: var(--bg); color: var(--tex
 .field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; }
 .field input:focus { border-color: var(--accent); }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 13px 24px; font-family: 'Onest', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; transition: opacity 0.2s, transform 0.15s; width: 100%; }
-.btn:hover { opacity: 0.9; }
-.btn:active { transform: scale(0.98); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:hover { opacity: 0.9; } .btn:active { transform: scale(0.98); } .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .error-msg { color: var(--error); font-size: 13px; margin-top: 12px; text-align: center; }
 #app-screen { flex: 1; display: none; flex-direction: column; }
 header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
@@ -296,10 +265,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .upload-formats { font-size: 12px; color: var(--accent2); margin-top: 8px; }
 .selected-file { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: none; align-items: center; gap: 12px; font-size: 14px; }
 .selected-file.show { display: flex; }
-.file-icon { font-size: 20px; }
-.file-info { flex: 1; }
-.file-name { font-weight: 500; }
-.file-size { font-size: 12px; color: var(--muted); }
+.file-icon { font-size: 20px; } .file-info { flex: 1; } .file-name { font-weight: 500; } .file-size { font-size: 12px; color: var(--muted); }
 .progress-wrap { display: none; }
 .progress-wrap.show { display: block; }
 .progress-label { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
@@ -310,13 +276,12 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .result-card.show { display: block; animation: fadeUp 0.4s ease; }
 .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .result-title { font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 600; }
-.download-btn { background: var(--success); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-family: 'Onest', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; }
-.download-btn:hover { opacity: 0.85; }
+.copy-btn { background: var(--success); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-family: 'Onest', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; }
+.copy-btn:hover { opacity: 0.85; }
 .result-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
 .tab { padding: 8px 16px; font-size: 13px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.2s, border-color 0.2s; }
 .tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
+.tab-content { display: none; } .tab-content.active { display: block; }
 .result-text { font-size: 14px; line-height: 1.7; color: var(--text); white-space: pre-wrap; max-height: 400px; overflow-y: auto; padding-right: 8px; }
 .result-text::-webkit-scrollbar { width: 4px; }
 .result-text::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -324,8 +289,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .history-title { font-family: 'Unbounded', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-bottom: 16px; }
 .history-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 24px 0; }
 .history-list { display: flex; flex-direction: column; gap: 8px; }
-.history-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; cursor: pointer; transition: border-color 0.2s; }
-.history-item:hover { border-color: var(--accent); }
+.history-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
 .history-item-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .history-item-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
@@ -378,7 +342,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
       <div class="result-card" id="result-card">
         <div class="result-header">
           <div class="result-title">✅ Готово</div>
-          <button class="download-btn" onclick="doDownload()">⬇ Скачать TXT</button>
+          <button class="copy-btn" onclick="copyAll()">📋 Копировать всё</button>
         </div>
         <div class="result-tabs">
           <div class="tab active" onclick="switchTab('summary')">Саммери</div>
@@ -396,8 +360,9 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 </div>
 
 <script>
-let currentEntryId = null;
 let selectedFile = null;
+let currentSummary = '';
+let currentTranscript = '';
 
 async function init() {
   const r = await fetch('/api/me');
@@ -408,13 +373,10 @@ async function init() {
 async function doLogin() {
   const btn = document.getElementById('login-btn');
   const err = document.getElementById('login-error');
-  btn.disabled = true;
-  btn.textContent = 'Вхожу…';
-  err.textContent = '';
+  btn.disabled = true; btn.textContent = 'Вхожу…'; err.textContent = '';
   try {
     const r = await fetch('/api/login', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({username: document.getElementById('username').value, password: document.getElementById('password').value})
     });
     const d = await r.json();
@@ -508,12 +470,35 @@ function setProgress(pct, status) {
 }
 
 function showResult(d) {
-  currentEntryId = d.entry_id;
+  currentSummary = d.summary;
+  currentTranscript = d.transcript;
   document.getElementById('result-summary').textContent = d.summary;
   document.getElementById('result-transcript').textContent = d.transcript;
   document.getElementById('result-card').classList.add('show');
   document.getElementById('transcribe-btn').disabled = false;
   switchTab('summary');
+
+  // Автоматически скачиваем TXT
+  const result = (
+    "==================================================\\n" +
+    "САММЕРИ И АНАЛИЗ\\n" +
+    "==================================================\\n\\n" +
+    d.summary +
+    "\\n\\n\\n" +
+    "==================================================\\n" +
+    "ПОЛНАЯ ТРАНСКРИПЦИЯ\\n" +
+    "==================================================\\n\\n" +
+    d.transcript
+  );
+  const blob = new Blob([result], {type: 'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (d.filename || 'transcription').replace(/\\.[^.]+$/, '') + '_result.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function switchTab(name) {
@@ -524,14 +509,29 @@ function switchTab(name) {
   document.getElementById('tab-transcript').classList.toggle('active', name==='transcript');
 }
 
-function doDownload() { if (currentEntryId) window.open('/api/download/' + currentEntryId); }
+function copyAll() {
+  const text = "САММЕРИ И АНАЛИЗ\\n\\n" + currentSummary + "\\n\\n\\nПОЛНАЯ ТРАНСКРИПЦИЯ\\n\\n" + currentTranscript;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✅ Скопировано!';
+    setTimeout(() => btn.textContent = '📋 Копировать всё', 2000);
+  });
+}
 
 async function loadHistory() {
   const r = await fetch('/api/history');
   const d = await r.json();
   const el = document.getElementById('history-list');
-  if (!d.history || d.history.length === 0) { el.innerHTML = '<div class="history-empty">Запросов пока нет</div>'; return; }
-  el.innerHTML = d.history.map(h => `<div class="history-item" onclick="window.open('/api/download/${h.id}')"><div class="history-item-name">${h.filename}</div><div class="history-item-date">${h.date}</div></div>`).join('');
+  if (!d.history || d.history.length === 0) {
+    el.innerHTML = '<div class="history-empty">Запросов пока нет</div>';
+    return;
+  }
+  el.innerHTML = d.history.map(h => `
+    <div class="history-item">
+      <div class="history-item-name">${h.filename}</div>
+      <div class="history-item-date">${h.date}</div>
+    </div>
+  `).join('');
 }
 
 init();
