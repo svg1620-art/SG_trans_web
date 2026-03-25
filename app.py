@@ -2,7 +2,7 @@ import os, math, subprocess, tempfile, json, hashlib, logging, threading
 from datetime import datetime
 from pathlib import Path
 from functools import wraps
-from flask import Flask, request, jsonify, session, render_template_string
+from flask import Flask, request, jsonify, session
 from openai import OpenAI
 
 logging.basicConfig(level=logging.INFO)
@@ -98,7 +98,8 @@ def run_job(job_id, tmp_path, filename, user):
 
 @app.route("/")
 def index():
-    return render_template_string(open("/app/index.html").read())
+    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
+    return open(html_path, encoding="utf-8").read()
 
 @app.route("/api/login", methods=["POST"])
 def login():
