@@ -5,6 +5,7 @@ import tempfile
 import json
 import hashlib
 import logging
+import threading
 from datetime import datetime
 from pathlib import Path
 from functools import wraps
@@ -30,6 +31,7 @@ MAX_MB = 200
 CHUNK_DURATION = (CHUNK_MB * 1024 * 1024 * 8) / (32 * 1000)
 
 history_store = {}
+jobs = {}  # job_id -> {status, result, error}
 
 
 def login_required(f):
@@ -57,7 +59,7 @@ def get_duration(path):
 def split_audio(path):
     total = get_duration(path)
     if total == 0:
-        return [path], False
+        return [path], 1
     chunks = []
     n = math.ceil(total / CHUNK_DURATION)
     for i in range(n):
@@ -69,18 +71,15 @@ def split_audio(path):
             capture_output=True
         )
         chunks.append(tmp.name)
-    return chunks, n > 1
+    return chunks, n
 
 
 def transcribe_single(path):
-    logger.info(f"Transcribing: {path}")
     with open(path, "rb") as f:
         r = openai_client.audio.transcriptions.create(
             model="whisper-1", file=f, response_format="text"
         )
-    result = r.strip() if isinstance(r, str) else r.text.strip()
-    logger.info(f"Transcribed {len(result)} chars")
-    return result
+    return r.strip() if isinstance(r, str) else r.text.strip()
 
 
 def transcribe(path):
@@ -88,42 +87,70 @@ def transcribe(path):
     logger.info(f"File size: {size_mb:.1f} MB")
     if size_mb <= CHUNK_MB:
         return transcribe_single(path), 1
-    chunks, _ = split_audio(path)
+    chunks, n = split_audio(path)
     try:
         parts = [transcribe_single(c) for c in chunks]
-        return " ".join(parts), len(chunks)
+        return " ".join(parts), n
     finally:
         for c in chunks:
-            try:
-                os.unlink(c)
-            except:
-                pass
+            try: os.unlink(c)
+            except: pass
 
 
 def summarize(transcript):
-    logger.info(f"Summarizing {len(transcript)} chars")
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Ты помощник для анализа транскрипций. Отвечай на русском языке."},
+            {"role": "user", "content": (
+                "Проанализируй транскрипцию и дай структурированный анализ:\n\n"
+                "1. КРАТКОЕ САММЕРИ (3-5 предложений)\n"
+                "2. КЛЮЧЕВЫЕ ТЕМЫ — список\n"
+                "3. ГЛАВНЫЕ ВЫВОДЫ — самое важное\n"
+                "4. ACTION ITEMS — договорённости и задачи (если есть)\n\n"
+                "Транскрипция:\n" + transcript
+            )}
+        ],
+        max_tokens=1500,
+    )
+    return response.choices[0].message.content.strip()
+
+
+def run_job(job_id, tmp_path, filename, user):
     try:
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Ты помощник для анализа транскрипций. Отвечай на русском языке."},
-                {"role": "user", "content": (
-                    "Проанализируй транскрипцию и дай структурированный анализ:\n\n"
-                    "1. КРАТКОЕ САММЕРИ (3-5 предложений)\n"
-                    "2. КЛЮЧЕВЫЕ ТЕМЫ — список\n"
-                    "3. ГЛАВНЫЕ ВЫВОДЫ — самое важное\n"
-                    "4. ACTION ITEMS — договорённости и задачи (если есть)\n\n"
-                    "Транскрипция:\n" + transcript
-                )}
-            ],
-            max_tokens=1500,
-        )
-        result = response.choices[0].message.content.strip()
-        logger.info(f"Summary done: {len(result)} chars")
-        return result
+        jobs[job_id]["status"] = "transcribing"
+        transcript, n_chunks = transcribe(tmp_path)
+
+        jobs[job_id]["status"] = "summarizing"
+        summary = summarize(transcript)
+
+        if user not in history_store:
+            history_store[user] = []
+        entry = {
+            "id": hashlib.md5(f"{user}{datetime.now()}".encode()).hexdigest()[:8],
+            "filename": filename,
+            "date": datetime.now().strftime("%d.%m.%Y %H:%M"),
+            "chunks": n_chunks,
+        }
+        history_store[user].insert(0, entry)
+        if len(history_store[user]) > 50:
+            history_store[user] = history_store[user][:50]
+
+        jobs[job_id]["status"] = "done"
+        jobs[job_id]["result"] = {
+            "summary": summary,
+            "transcript": transcript,
+            "filename": filename,
+            "chunks": n_chunks,
+        }
+        logger.info(f"Job {job_id} done")
     except Exception as e:
-        logger.exception(f"Summarize error: {e}")
-        return f"[Ошибка при создании саммери: {e}]"
+        logger.exception(f"Job {job_id} failed: {e}")
+        jobs[job_id]["status"] = "error"
+        jobs[job_id]["error"] = str(e)
+    finally:
+        try: os.unlink(tmp_path)
+        except: pass
 
 
 @app.route("/")
@@ -159,7 +186,6 @@ def me():
 @app.route("/api/transcribe", methods=["POST"])
 @login_required
 def transcribe_route():
-    logger.info("Transcribe request received")
     if "file" not in request.files:
         return jsonify({"error": "Файл не найден"}), 400
 
@@ -177,39 +203,23 @@ def transcribe_route():
     tmp.write(content)
     tmp.close()
 
-    try:
-        transcript, n_chunks = transcribe(tmp.name)
-        summary = summarize(transcript)
+    job_id = hashlib.md5(f"{session['user']}{datetime.now()}".encode()).hexdigest()[:12]
+    jobs[job_id] = {"status": "starting", "result": None, "error": None}
 
-        user = session["user"]
-        if user not in history_store:
-            history_store[user] = []
-        entry = {
-            "id": hashlib.md5(f"{user}{datetime.now()}".encode()).hexdigest()[:8],
-            "filename": file.filename,
-            "date": datetime.now().strftime("%d.%m.%Y %H:%M"),
-            "chunks": n_chunks,
-        }
-        history_store[user].insert(0, entry)
-        if len(history_store[user]) > 50:
-            history_store[user] = history_store[user][:50]
+    t = threading.Thread(target=run_job, args=(job_id, tmp.name, file.filename, session["user"]))
+    t.daemon = True
+    t.start()
 
-        logger.info(f"Done. Entry {entry['id']} saved.")
-        return jsonify({
-            "ok": True,
-            "summary": summary,
-            "transcript": transcript,
-            "chunks": n_chunks,
-            "filename": file.filename,
-        })
-    except Exception as e:
-        logger.exception(f"Transcribe route error: {e}")
-        return jsonify({"error": str(e)}), 500
-    finally:
-        try:
-            os.unlink(tmp.name)
-        except:
-            pass
+    return jsonify({"ok": True, "job_id": job_id})
+
+
+@app.route("/api/status/<job_id>")
+@login_required
+def job_status(job_id):
+    job = jobs.get(job_id)
+    if not job:
+        return jsonify({"error": "Задача не найдена"}), 404
+    return jsonify(job)
 
 
 @app.route("/api/history")
@@ -266,12 +276,12 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .selected-file { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: none; align-items: center; gap: 12px; font-size: 14px; }
 .selected-file.show { display: flex; }
 .file-icon { font-size: 20px; } .file-info { flex: 1; } .file-name { font-weight: 500; } .file-size { font-size: 12px; color: var(--muted); }
-.progress-wrap { display: none; }
+.progress-wrap { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
 .progress-wrap.show { display: block; }
-.progress-label { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
-.progress-bar-bg { background: var(--surface2); border-radius: 99px; height: 4px; overflow: hidden; }
-.progress-bar { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.3s; width: 0%; }
-.progress-status { font-size: 13px; color: var(--accent2); margin-top: 8px; animation: pulse 1.5s infinite; }
+.progress-label { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.progress-bar-bg { background: var(--surface2); border-radius: 99px; height: 6px; overflow: hidden; margin-bottom: 10px; }
+.progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 99px; transition: width 0.5s ease; width: 0%; }
+.progress-status { font-size: 14px; color: var(--accent2); animation: pulse 1.5s infinite; }
 .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; display: none; }
 .result-card.show { display: block; animation: fadeUp 0.4s ease; }
 .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
@@ -293,7 +303,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .history-item-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .history-item-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 </style>
 </head>
 <body>
@@ -335,7 +345,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
       </div>
       <button class="btn" id="transcribe-btn" onclick="doTranscribe()" disabled>Расшифровать и проанализировать</button>
       <div class="progress-wrap" id="progress-wrap">
-        <div class="progress-label">Обработка</div>
+        <div class="progress-label">Обработка файла</div>
         <div class="progress-bar-bg"><div class="progress-bar" id="progress-bar"></div></div>
         <div class="progress-status" id="progress-status">Загружаю файл…</div>
       </div>
@@ -363,6 +373,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 let selectedFile = null;
 let currentSummary = '';
 let currentTranscript = '';
+let pollInterval = null;
 
 async function init() {
   const r = await fetch('/api/me');
@@ -431,37 +442,60 @@ async function doTranscribe() {
   btn.disabled = true;
   document.getElementById('result-card').classList.remove('show');
   document.getElementById('progress-wrap').classList.add('show');
-  setProgress(10, 'Загружаю файл…');
+  setProgress(5, 'Загружаю файл…');
+
   const fd = new FormData();
   fd.append('file', selectedFile);
-  let p = 10;
-  const ticker = setInterval(() => {
-    p = Math.min(p + Math.random() * 6, 85);
-    const status = p < 35 ? 'Загружаю файл…' : p < 65 ? 'Расшифровываю аудио…' : 'Делаю саммери…';
-    setProgress(p, status);
-  }, 1500);
+
   try {
     const r = await fetch('/api/transcribe', {method: 'POST', body: fd});
     const d = await r.json();
-    clearInterval(ticker);
-    if (d.ok) {
-      setProgress(100, 'Готово!');
-      setTimeout(() => {
-        document.getElementById('progress-wrap').classList.remove('show');
-        showResult(d);
-        loadHistory();
-      }, 600);
-    } else {
+    if (!d.ok) {
       document.getElementById('progress-wrap').classList.remove('show');
       alert('Ошибка: ' + (d.error || 'Неизвестная ошибка'));
       btn.disabled = false;
+      return;
     }
+    startPolling(d.job_id);
   } catch(e) {
-    clearInterval(ticker);
     document.getElementById('progress-wrap').classList.remove('show');
-    alert('Ошибка соединения. Попробуйте ещё раз.');
+    alert('Ошибка соединения при загрузке файла.');
     btn.disabled = false;
   }
+}
+
+function startPolling(jobId) {
+  let dots = 0;
+  setProgress(15, 'Файл загружен, начинаю расшифровку…');
+
+  pollInterval = setInterval(async () => {
+    try {
+      const r = await fetch('/api/status/' + jobId);
+      const d = await r.json();
+
+      if (d.status === 'transcribing') {
+        dots = (dots + 1) % 4;
+        setProgress(40, 'Расшифровываю аудио' + '.'.repeat(dots));
+      } else if (d.status === 'summarizing') {
+        setProgress(80, 'Делаю саммери и анализ…');
+      } else if (d.status === 'done') {
+        clearInterval(pollInterval);
+        setProgress(100, 'Готово!');
+        setTimeout(() => {
+          document.getElementById('progress-wrap').classList.remove('show');
+          showResult(d.result);
+          loadHistory();
+        }, 500);
+      } else if (d.status === 'error') {
+        clearInterval(pollInterval);
+        document.getElementById('progress-wrap').classList.remove('show');
+        alert('Ошибка обработки: ' + (d.error || 'Неизвестная ошибка'));
+        document.getElementById('transcribe-btn').disabled = false;
+      }
+    } catch(e) {
+      // сеть временно недоступна — продолжаем опрос
+    }
+  }, 3000);
 }
 
 function setProgress(pct, status) {
@@ -478,23 +512,22 @@ function showResult(d) {
   document.getElementById('transcribe-btn').disabled = false;
   switchTab('summary');
 
-  // Автоматически скачиваем TXT
   const result = (
-    "==================================================\\n" +
-    "САММЕРИ И АНАЛИЗ\\n" +
-    "==================================================\\n\\n" +
+    "==================================================\n" +
+    "САММЕРИ И АНАЛИЗ\n" +
+    "==================================================\n\n" +
     d.summary +
-    "\\n\\n\\n" +
-    "==================================================\\n" +
-    "ПОЛНАЯ ТРАНСКРИПЦИЯ\\n" +
-    "==================================================\\n\\n" +
+    "\n\n\n" +
+    "==================================================\n" +
+    "ПОЛНАЯ ТРАНСКРИПЦИЯ\n" +
+    "==================================================\n\n" +
     d.transcript
   );
   const blob = new Blob([result], {type: 'text/plain;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = (d.filename || 'transcription').replace(/\\.[^.]+$/, '') + '_result.txt';
+  a.download = (d.filename || 'transcription').replace(/\.[^.]+$/, '') + '_result.txt';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -510,7 +543,7 @@ function switchTab(name) {
 }
 
 function copyAll() {
-  const text = "САММЕРИ И АНАЛИЗ\\n\\n" + currentSummary + "\\n\\n\\nПОЛНАЯ ТРАНСКРИПЦИЯ\\n\\n" + currentTranscript;
+  const text = "САММЕРИ И АНАЛИЗ\n\n" + currentSummary + "\n\n\nПОЛНАЯ ТРАНСКРИПЦИЯ\n\n" + currentTranscript;
   navigator.clipboard.writeText(text).then(() => {
     const btn = document.querySelector('.copy-btn');
     btn.textContent = '✅ Скопировано!';
