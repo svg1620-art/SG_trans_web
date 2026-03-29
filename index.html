@@ -18,6 +18,9 @@
   --muted: #7a7a9a;
   --success: #00b894;
   --error: #e8553e;
+  --sales: #e17055;
+  --renewal: #00cec9;
+  --general: #6c5ce7;
 }
 body { font-family: 'Onest', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 #login-screen { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -27,10 +30,8 @@ body { font-family: 'Onest', sans-serif; background: var(--bg); color: var(--tex
 .login-sub { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
 .field { margin-bottom: 16px; }
 .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-.field input, .field textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; }
-.field input:focus, .field textarea:focus { border-color: var(--accent); }
-.field textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
-.field-hint { font-size: 12px; color: var(--muted); margin-top: 5px; }
+.field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; }
+.field input:focus { border-color: var(--accent); }
 .btn { display: flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 13px 24px; font-family: 'Onest', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; width: 100%; transition: opacity 0.2s; }
 .btn:hover { opacity: 0.9; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -43,6 +44,19 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .main { flex: 1; display: grid; grid-template-columns: 1fr 300px; gap: 24px; max-width: 1200px; width: 100%; margin: 0 auto; padding: 32px; }
 @media (max-width: 768px) { .main { grid-template-columns: 1fr; padding: 16px; } }
 .upload-section { display: flex; flex-direction: column; gap: 20px; }
+
+/* MODE SWITCHER */
+.mode-switcher { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 6px; display: flex; gap: 4px; }
+.mode-btn { flex: 1; padding: 10px 8px; border: none; border-radius: 8px; font-family: 'Onest', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; background: none; color: var(--muted); transition: all 0.2s; text-align: center; }
+.mode-btn:hover { color: var(--text); }
+.mode-btn.active[data-mode="sales"] { background: rgba(225,112,85,0.15); color: var(--sales); border: 1px solid rgba(225,112,85,0.3); }
+.mode-btn.active[data-mode="renewal"] { background: rgba(0,206,201,0.15); color: var(--renewal); border: 1px solid rgba(0,206,201,0.3); }
+.mode-btn.active[data-mode="general"] { background: rgba(108,92,231,0.15); color: var(--accent2); border: 1px solid rgba(108,92,231,0.3); }
+.mode-desc { font-size: 12px; color: var(--muted); padding: 8px 12px; background: var(--surface2); border-radius: 8px; border-left: 3px solid var(--accent); }
+.mode-desc[data-for="sales"] { border-color: var(--sales); }
+.mode-desc[data-for="renewal"] { border-color: var(--renewal); }
+.mode-desc[data-for="general"] { border-color: var(--general); }
+
 .upload-zone { background: var(--surface); border: 2px dashed var(--border); border-radius: 16px; padding: 40px 32px; text-align: center; cursor: pointer; position: relative; transition: border-color 0.2s; }
 .upload-zone:hover { border-color: var(--accent); }
 .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
@@ -55,12 +69,12 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .file-name { font-size: 14px; font-weight: 500; }
 .file-size { font-size: 12px; color: var(--muted); }
 .prompt-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
-.prompt-label { font-size: 13px; font-weight: 500; color: var(--accent2); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-.prompt-label-hint { font-size: 12px; color: var(--muted); font-weight: 400; }
-.prompt-box textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; resize: vertical; min-height: 80px; line-height: 1.5; transition: border-color 0.2s; }
+.prompt-label { font-size: 13px; font-weight: 500; color: var(--accent2); margin-bottom: 8px; }
+.prompt-label span { font-size: 12px; color: var(--muted); font-weight: 400; }
+.prompt-box textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; resize: vertical; min-height: 70px; line-height: 1.5; transition: border-color 0.2s; }
 .prompt-box textarea:focus { border-color: var(--accent); }
 .prompt-examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.prompt-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 12px; color: var(--muted); cursor: pointer; transition: border-color 0.2s, color 0.2s; }
+.prompt-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 12px; color: var(--muted); cursor: pointer; transition: all 0.2s; }
 .prompt-chip:hover { border-color: var(--accent2); color: var(--accent2); }
 .progress-wrap { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
 .progress-wrap.show { display: block; }
@@ -71,6 +85,11 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .result-card.show { display: block; }
 .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .result-title { font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 600; }
+.result-badges { display: flex; gap: 8px; align-items: center; }
+.mode-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.05em; }
+.mode-badge.sales { background: rgba(225,112,85,0.15); color: var(--sales); }
+.mode-badge.renewal { background: rgba(0,206,201,0.15); color: var(--renewal); }
+.mode-badge.general { background: rgba(108,92,231,0.15); color: var(--accent2); }
 .copy-btn { background: var(--success); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-family: 'Onest', sans-serif; font-size: 13px; cursor: pointer; }
 .prompt-used { background: var(--surface2); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; color: var(--muted); display: none; }
 .prompt-used.show { display: block; }
@@ -80,7 +99,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-.result-text { font-size: 14px; line-height: 1.7; white-space: pre-wrap; max-height: 420px; overflow-y: auto; }
+.result-text { font-size: 14px; line-height: 1.7; white-space: pre-wrap; max-height: 500px; overflow-y: auto; }
 .result-text::-webkit-scrollbar { width: 4px; }
 .result-text::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .history-section { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; height: fit-content; }
@@ -89,7 +108,10 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .history-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
 .history-item-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .history-item-date { font-size: 11px; color: var(--muted); margin-top: 3px; }
-.history-item-prompt { font-size: 11px; color: var(--accent2); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-item-mode { font-size: 11px; margin-top: 3px; font-weight: 600; }
+.history-item-mode.sales { color: var(--sales); }
+.history-item-mode.renewal { color: var(--renewal); }
+.history-item-mode.general { color: var(--accent2); }
 </style>
 </head>
 <body>
@@ -123,6 +145,16 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
   <div class="main">
     <div class="upload-section">
 
+      <div class="mode-switcher">
+        <button class="mode-btn active" data-mode="sales">🔥 Продажа</button>
+        <button class="mode-btn" data-mode="renewal">🔄 Продление</button>
+        <button class="mode-btn" data-mode="general">🎙️ Просто аудио</button>
+      </div>
+
+      <div class="mode-desc" id="mode-desc" data-for="sales">
+        Анализ звонка по скрипту продаж ServiceGuru.Клуб — квалификация, возражения, оценка менеджера
+      </div>
+
       <div class="upload-zone" id="drop-zone">
         <input type="file" id="file-input" accept=".mp3,.ogg,.wav,.m4a,.mp4,.webm,.flac">
         <div class="upload-icon">🎙️</div>
@@ -139,17 +171,13 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
       </div>
 
       <div class="prompt-box">
-        <div class="prompt-label">
-          💬 Контекст и задача
-          <span class="prompt-label-hint">— необязательно</span>
-        </div>
-        <textarea id="user-prompt" placeholder="Опишите контекст или задайте вопрос. Например: «Это встреча по продажам с клиентом. Выдели возражения и как на них ответили» или «Интервью с кандидатом. Оцени его компетенции»"></textarea>
-        <div class="prompt-examples">
-          <div class="prompt-chip" data-prompt="Встреча с клиентом по продажам. Выдели возражения клиента и как на них ответили.">Продажи</div>
-          <div class="prompt-chip" data-prompt="Интервью с кандидатом на должность. Оцени компетенции и выдели сильные и слабые стороны.">Интервью</div>
-          <div class="prompt-chip" data-prompt="Рабочая встреча команды. Выдели принятые решения и задачи с ответственными.">Митап</div>
-          <div class="prompt-chip" data-prompt="Разговор с клиентом о проблеме или жалобе. Выдели суть проблемы и договорённости по решению.">Поддержка</div>
-          <div class="prompt-chip" data-prompt="Переговоры. Выдели позиции сторон, точки согласия и разногласия.">Переговоры</div>
+        <div class="prompt-label">💬 Дополнительный контекст <span>— необязательно</span></div>
+        <textarea id="user-prompt" placeholder="Добавьте контекст или уточнение. Например: имя менеджера, особенности клиента, на что обратить особое внимание"></textarea>
+        <div class="prompt-examples" id="prompt-examples">
+          <div class="prompt-chip" data-prompt="Менеджер новичок, первый месяц работы.">Новичок</div>
+          <div class="prompt-chip" data-prompt="Клиент уже отказывал ранее, повторный контакт.">Повторный</div>
+          <div class="prompt-chip" data-prompt="Крупная сеть, решение принимает комитет.">Крупная сеть</div>
+          <div class="prompt-chip" data-prompt="Обрати особое внимание на работу с ценовыми возражениями.">Цена</div>
         </div>
       </div>
 
@@ -164,7 +192,10 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
       <div class="result-card" id="result-card">
         <div class="result-header">
           <div class="result-title">✅ Готово</div>
-          <button class="copy-btn" id="copy-btn">📋 Копировать всё</button>
+          <div class="result-badges">
+            <span class="mode-badge" id="result-mode-badge"></span>
+            <button class="copy-btn" id="copy-btn">📋 Копировать</button>
+          </div>
         </div>
         <div class="prompt-used" id="prompt-used"></div>
         <div class="result-tabs">
@@ -192,7 +223,20 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 var selectedFile = null;
 var currentSummary = '';
 var currentTranscript = '';
+var currentMode = 'sales';
 var pollInterval = null;
+
+var modeDescriptions = {
+  sales: 'Анализ звонка по скрипту продаж ServiceGuru.Клуб — квалификация, возражения, оценка менеджера',
+  renewal: 'Анализ звонка на продление — здоровье аккаунта, риски оттока, готовность к продлению',
+  general: 'Расшифровка и общее саммери — темы, выводы, action items'
+};
+
+var modeLabels = {
+  sales: '🔥 Продажа',
+  renewal: '🔄 Продление',
+  general: '🎙️ Аудио'
+};
 
 document.getElementById('login-btn').addEventListener('click', doLogin);
 document.getElementById('password').addEventListener('keydown', function(e) {
@@ -205,6 +249,17 @@ document.getElementById('file-input').addEventListener('change', function() {
 });
 document.getElementById('copy-btn').addEventListener('click', copyAll);
 
+document.querySelectorAll('.mode-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    currentMode = this.dataset.mode;
+    var desc = document.getElementById('mode-desc');
+    desc.textContent = modeDescriptions[currentMode];
+    desc.dataset.for = currentMode;
+  });
+});
+
 document.querySelectorAll('.tab').forEach(function(tab) {
   tab.addEventListener('click', function() { switchTab(this.dataset.tab); });
 });
@@ -212,7 +267,6 @@ document.querySelectorAll('.tab').forEach(function(tab) {
 document.querySelectorAll('.prompt-chip').forEach(function(chip) {
   chip.addEventListener('click', function() {
     document.getElementById('user-prompt').value = this.dataset.prompt;
-    document.getElementById('user-prompt').focus();
   });
 });
 
@@ -289,6 +343,7 @@ async function doTranscribe() {
   var fd = new FormData();
   fd.append('file', selectedFile);
   fd.append('prompt', document.getElementById('user-prompt').value);
+  fd.append('mode', currentMode);
   try {
     var r = await fetch('/api/transcribe', {method: 'POST', body: fd});
     var d = await r.json();
@@ -317,7 +372,7 @@ function startPolling(jobId) {
         dots = (dots + 1) % 4;
         setProgress(40, 'Расшифровываю аудио' + '...'.slice(0, dots + 1));
       } else if (d.status === 'summarizing') {
-        setProgress(80, 'Делаю анализ…');
+        setProgress(80, 'Анализирую по скрипту…');
       } else if (d.status === 'done') {
         clearInterval(pollInterval);
         setProgress(100, 'Готово!');
@@ -347,6 +402,10 @@ function showResult(d) {
   document.getElementById('result-summary').textContent = d.summary;
   document.getElementById('result-transcript').textContent = d.transcript;
 
+  var badge = document.getElementById('result-mode-badge');
+  badge.textContent = modeLabels[d.mode] || d.mode;
+  badge.className = 'mode-badge ' + (d.mode || 'general');
+
   var promptEl = document.getElementById('prompt-used');
   if (d.prompt && d.prompt.trim()) {
     promptEl.innerHTML = '<strong>Контекст:</strong> ' + d.prompt;
@@ -359,7 +418,8 @@ function showResult(d) {
   document.getElementById('transcribe-btn').disabled = false;
   switchTab('summary');
 
-  var result = "==================================================\nАНАЛИЗ\n==================================================\n\n";
+  var modeHeader = d.mode === 'sales' ? 'АНАЛИЗ ЗВОНКА — ПРОДАЖА' : d.mode === 'renewal' ? 'АНАЛИЗ ЗВОНКА — ПРОДЛЕНИЕ' : 'АНАЛИЗ АУДИО';
+  var result = "==================================================\n" + modeHeader + "\n==================================================\n\n";
   if (d.prompt && d.prompt.trim()) {
     result += "Контекст: " + d.prompt + "\n\n";
   }
@@ -369,7 +429,7 @@ function showResult(d) {
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = (d.filename || 'transcription').replace(/\.[^.]+$/, '') + '_result.txt';
+  a.download = (d.filename || 'transcription').replace(/\.[^.]+$/, '') + '_' + (d.mode || 'result') + '.txt';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -389,7 +449,7 @@ function copyAll() {
   navigator.clipboard.writeText(text).then(function() {
     var btn = document.getElementById('copy-btn');
     btn.textContent = '✅ Скопировано!';
-    setTimeout(function() { btn.textContent = '📋 Копировать всё'; }, 2000);
+    setTimeout(function() { btn.textContent = '📋 Копировать'; }, 2000);
   });
 }
 
@@ -401,9 +461,15 @@ async function loadHistory() {
     el.innerHTML = '<div class="history-empty">Запросов пока нет</div>';
     return;
   }
+  var modeNames = {sales: '🔥 Продажа', renewal: '🔄 Продление', general: '🎙️ Аудио'};
   el.innerHTML = d.history.map(function(h) {
-    var promptLine = h.prompt ? '<div class="history-item-prompt">💬 ' + h.prompt + '</div>' : '';
-    return '<div class="history-item"><div class="history-item-name">' + h.filename + '</div><div class="history-item-date">' + h.date + '</div>' + promptLine + '</div>';
+    var modeClass = h.mode || 'general';
+    var modeName = modeNames[modeClass] || modeClass;
+    return '<div class="history-item">' +
+      '<div class="history-item-name">' + h.filename + '</div>' +
+      '<div class="history-item-date">' + h.date + '</div>' +
+      '<div class="history-item-mode ' + modeClass + '">' + modeName + '</div>' +
+      '</div>';
   }).join('');
 }
 
