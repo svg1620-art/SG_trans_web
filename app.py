@@ -64,30 +64,62 @@ def transcribe(path):
             try: os.unlink(c)
             except: pass
 
-def summarize(transcript):
+def summarize(transcript, user_prompt=""):
+    if user_prompt.strip():
+        context = f"Контекст от пользователя: {user_prompt.strip()}\n\n"
+        instruction = (
+            f"Учитывай контекст выше при анализе. "
+            f"Проанализируй транскрипцию:\n\n"
+            f"1. КРАТКОЕ САММЕРИ (3-5 предложений)\n"
+            f"2. КЛЮЧЕВЫЕ ТЕМЫ\n"
+            f"3. ГЛАВНЫЕ ВЫВОДЫ\n"
+            f"4. ACTION ITEMS\n"
+            f"5. АНАЛИЗ ПО ЗАПРОСУ — ответь на вопрос/задачу из контекста пользователя\n\n"
+            f"Транскрипция:\n" + transcript
+        )
+    else:
+        context = ""
+        instruction = (
+            "Проанализируй транскрипцию:\n\n"
+            "1. КРАТКОЕ САММЕРИ (3-5 предложений)\n"
+            "2. КЛЮЧЕВЫЕ ТЕМЫ\n"
+            "3. ГЛАВНЫЕ ВЫВОДЫ\n"
+            "4. ACTION ITEMS\n\n"
+            "Транскрипция:\n" + transcript
+        )
     r = openai_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "Ты помощник для анализа транскрипций. Отвечай на русском языке."},
-            {"role": "user", "content": "Проанализируй транскрипцию:\n\n1. КРАТКОЕ САММЕРИ (3-5 предложений)\n2. КЛЮЧЕВЫЕ ТЕМЫ\n3. ГЛАВНЫЕ ВЫВОДЫ\n4. ACTION ITEMS\n\nТранскрипция:\n" + transcript}
+            {"role": "user", "content": context + instruction}
         ],
-        max_tokens=1500,
+        max_tokens=2000,
     )
     return r.choices[0].message.content.strip()
 
-def run_job(job_id, tmp_path, filename, user):
+def run_job(job_id, tmp_path, filename, user, user_prompt):
     try:
         jobs[job_id]["status"] = "transcribing"
         transcript, n = transcribe(tmp_path)
         jobs[job_id]["status"] = "summarizing"
-        summary = summarize(transcript)
+        summary = summarize(transcript, user_prompt)
         if user not in history_store:
             history_store[user] = []
-        history_store[user].insert(0, {"filename": filename, "date": datetime.now().strftime("%d.%m.%Y %H:%M")})
+        history_store[user].insert(0, {
+            "filename": filename,
+            "date": datetime.now().strftime("%d.%m.%Y %H:%M"),
+            "prompt": user_prompt[:100] if user_prompt else ""
+        })
         if len(history_store[user]) > 50:
             history_store[user] = history_store[user][:50]
         jobs[job_id]["status"] = "done"
-        jobs[job_id]["result"] = {"summary": summary, "transcript": transcript, "filename": filename, "chunks": n}
+        jobs[job_id]["result"] = {
+            "summary": summary,
+            "transcript": transcript,
+            "filename": filename,
+            "chunks": n,
+            "prompt": user_prompt
+        }
     except Exception as e:
         logger.exception(f"Job {job_id} failed")
         jobs[job_id]["status"] = "error"
@@ -131,12 +163,13 @@ def transcribe_route():
     size_mb = len(content) / (1024*1024)
     if size_mb > MAX_MB:
         return jsonify({"error": f"Файл слишком большой ({size_mb:.0f} MB)"}), 400
+    user_prompt = request.form.get("prompt", "")
     tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
     tmp.write(content)
     tmp.close()
     job_id = hashlib.md5(f"{session['user']}{datetime.now()}".encode()).hexdigest()[:12]
     jobs[job_id] = {"status": "starting", "result": None, "error": None}
-    t = threading.Thread(target=run_job, args=(job_id, tmp.name, file.filename, session["user"]))
+    t = threading.Thread(target=run_job, args=(job_id, tmp.name, file.filename, session["user"], user_prompt))
     t.daemon = True
     t.start()
     return jsonify({"ok": True, "job_id": job_id})
