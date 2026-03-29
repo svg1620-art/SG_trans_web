@@ -21,8 +21,11 @@
   --sales: #e17055;
   --renewal: #00cec9;
   --general: #6c5ce7;
+  --warn: #fdcb6e;
 }
 body { font-family: 'Onest', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+/* LOGIN */
 #login-screen { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 48px 40px; width: 100%; max-width: 400px; }
 .login-logo { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.15em; color: var(--accent2); text-transform: uppercase; margin-bottom: 32px; }
@@ -36,19 +39,33 @@ body { font-family: 'Onest', sans-serif; background: var(--bg); color: var(--tex
 .btn:hover { opacity: 0.9; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .error-msg { color: var(--error); font-size: 13px; margin-top: 12px; text-align: center; }
+
+/* APP */
 #app-screen { flex: 1; display: none; flex-direction: column; }
-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; height: 60px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
 .header-logo { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: var(--accent2); text-transform: uppercase; }
-.header-user { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--muted); }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.header-username { font-size: 14px; color: var(--muted); }
 .logout-btn { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: 'Onest', sans-serif; font-size: 13px; padding: 6px 12px; cursor: pointer; }
-.main { flex: 1; display: grid; grid-template-columns: 1fr 300px; gap: 24px; max-width: 1200px; width: 100%; margin: 0 auto; padding: 32px; }
-@media (max-width: 768px) { .main { grid-template-columns: 1fr; padding: 16px; } }
+
+/* NAV TABS */
+.nav-tabs { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; gap: 4px; }
+.nav-tab { padding: 14px 20px; font-size: 14px; font-weight: 500; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.2s, border-color 0.2s; }
+.nav-tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+.nav-tab:hover { color: var(--text); }
+
+/* PAGES */
+.page { display: none; flex: 1; }
+.page.active { display: flex; flex-direction: column; }
+
+/* TRANSCRIBE PAGE */
+.transcribe-layout { display: grid; grid-template-columns: 1fr 300px; gap: 24px; max-width: 1200px; width: 100%; margin: 0 auto; padding: 32px; flex: 1; }
+@media (max-width: 768px) { .transcribe-layout { grid-template-columns: 1fr; padding: 16px; } }
 .upload-section { display: flex; flex-direction: column; gap: 20px; }
 
 /* MODE SWITCHER */
 .mode-switcher { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 6px; display: flex; gap: 4px; }
 .mode-btn { flex: 1; padding: 10px 8px; border: none; border-radius: 8px; font-family: 'Onest', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; background: none; color: var(--muted); transition: all 0.2s; text-align: center; }
-.mode-btn:hover { color: var(--text); }
 .mode-btn.active[data-mode="sales"] { background: rgba(225,112,85,0.15); color: var(--sales); border: 1px solid rgba(225,112,85,0.3); }
 .mode-btn.active[data-mode="renewal"] { background: rgba(0,206,201,0.15); color: var(--renewal); border: 1px solid rgba(0,206,201,0.3); }
 .mode-btn.active[data-mode="general"] { background: rgba(108,92,231,0.15); color: var(--accent2); border: 1px solid rgba(108,92,231,0.3); }
@@ -64,54 +81,119 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .upload-title { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 600; margin-bottom: 6px; }
 .upload-sub { font-size: 13px; color: var(--muted); }
 .upload-formats { font-size: 12px; color: var(--accent2); margin-top: 6px; }
+
 .selected-file { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: none; align-items: center; gap: 12px; }
 .selected-file.show { display: flex; }
 .file-name { font-size: 14px; font-weight: 500; }
 .file-size { font-size: 12px; color: var(--muted); }
+
+.meta-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.meta-field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.meta-field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; }
+.meta-field input:focus { border-color: var(--accent); }
+
 .prompt-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
 .prompt-label { font-size: 13px; font-weight: 500; color: var(--accent2); margin-bottom: 8px; }
 .prompt-label span { font-size: 12px; color: var(--muted); font-weight: 400; }
 .prompt-box textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; resize: vertical; min-height: 70px; line-height: 1.5; transition: border-color 0.2s; }
 .prompt-box textarea:focus { border-color: var(--accent); }
-.prompt-examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.prompt-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 12px; color: var(--muted); cursor: pointer; transition: all 0.2s; }
-.prompt-chip:hover { border-color: var(--accent2); color: var(--accent2); }
+.prompt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 12px; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+.chip:hover { border-color: var(--accent2); color: var(--accent2); }
+
 .progress-wrap { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
 .progress-wrap.show { display: block; }
 .progress-bar-bg { background: var(--surface2); border-radius: 99px; height: 6px; overflow: hidden; margin: 12px 0 10px; }
 .progress-bar { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.5s ease; width: 0%; }
 .progress-status { font-size: 14px; color: var(--accent2); }
+
 .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; display: none; }
 .result-card.show { display: block; }
-.result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: gap; gap: 8px; }
 .result-title { font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 600; }
-.result-badges { display: flex; gap: 8px; align-items: center; }
+.result-badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .mode-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.05em; }
 .mode-badge.sales { background: rgba(225,112,85,0.15); color: var(--sales); }
 .mode-badge.renewal { background: rgba(0,206,201,0.15); color: var(--renewal); }
 .mode-badge.general { background: rgba(108,92,231,0.15); color: var(--accent2); }
+.score-badge { font-size: 13px; font-weight: 700; padding: 3px 12px; border-radius: 20px; }
+.score-badge.high { background: rgba(0,184,148,0.15); color: var(--success); }
+.score-badge.mid { background: rgba(253,203,110,0.15); color: var(--warn); }
+.score-badge.low { background: rgba(232,85,62,0.15); color: var(--error); }
 .copy-btn { background: var(--success); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-family: 'Onest', sans-serif; font-size: 13px; cursor: pointer; }
-.prompt-used { background: var(--surface2); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; color: var(--muted); display: none; }
-.prompt-used.show { display: block; }
-.prompt-used strong { color: var(--accent2); }
+
 .result-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
-.tab { padding: 8px 16px; font-size: 13px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
-.tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
+.rtab { padding: 8px 16px; font-size: 13px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.rtab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+.rtab-content { display: none; }
+.rtab-content.active { display: block; }
 .result-text { font-size: 14px; line-height: 1.7; white-space: pre-wrap; max-height: 500px; overflow-y: auto; }
 .result-text::-webkit-scrollbar { width: 4px; }
 .result-text::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* HISTORY SIDEBAR */
 .history-section { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; height: fit-content; }
-.history-title { font-family: 'Unbounded', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-bottom: 16px; }
+.section-title { font-family: 'Unbounded', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-bottom: 16px; }
 .history-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 24px 0; }
 .history-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
 .history-item-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .history-item-date { font-size: 11px; color: var(--muted); margin-top: 3px; }
-.history-item-mode { font-size: 11px; margin-top: 3px; font-weight: 600; }
-.history-item-mode.sales { color: var(--sales); }
-.history-item-mode.renewal { color: var(--renewal); }
-.history-item-mode.general { color: var(--accent2); }
+.history-item-meta { display: flex; gap: 6px; margin-top: 4px; align-items: center; }
+.hbadge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
+.hbadge.sales { background: rgba(225,112,85,0.15); color: var(--sales); }
+.hbadge.renewal { background: rgba(0,206,201,0.15); color: var(--renewal); }
+.hbadge.general { background: rgba(108,92,231,0.15); color: var(--accent2); }
+.hbadge.manager { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+
+/* DASHBOARD PAGE */
+.dashboard-layout { max-width: 1200px; width: 100%; margin: 0 auto; padding: 32px; }
+.dash-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+@media (max-width: 768px) { .dash-stats { grid-template-columns: repeat(2, 1fr); } }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.stat-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
+.stat-value { font-family: 'Unbounded', sans-serif; font-size: 28px; font-weight: 700; color: var(--text); }
+.stat-value.accent { color: var(--accent2); }
+.stat-value.success { color: var(--success); }
+.stat-value.warn { color: var(--warn); }
+.stat-value.err { color: var(--error); }
+
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+@media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr; } }
+.dash-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+.dash-card-title { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 600; margin-bottom: 20px; color: var(--text); }
+
+/* MANAGER CARDS */
+.manager-cards { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+.manager-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+.manager-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.manager-name { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 600; }
+.manager-meta { display: flex; gap: 12px; align-items: center; }
+.manager-calls { font-size: 13px; color: var(--muted); }
+.big-score { font-family: 'Unbounded', sans-serif; font-size: 32px; font-weight: 700; }
+.big-score.high { color: var(--success); }
+.big-score.mid { color: var(--warn); }
+.big-score.low { color: var(--error); }
+.manager-body { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 600px) { .manager-body { grid-template-columns: 1fr; } }
+.manager-section-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+.error-list { list-style: none; }
+.error-list li { font-size: 13px; color: var(--text); padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 8px; }
+.error-list li:last-child { border-bottom: none; }
+.error-list li::before { content: '⚠️'; font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+.task-list { list-style: none; }
+.task-list li { font-size: 13px; color: var(--text); padding: 8px 10px; background: var(--surface2); border-radius: 8px; margin-bottom: 6px; display: flex; gap: 8px; align-items: flex-start; border-left: 3px solid var(--accent); }
+.task-list li::before { content: '→'; color: var(--accent2); flex-shrink: 0; font-weight: 700; }
+
+/* TOP ERRORS */
+.top-error-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.top-error-item:last-child { border-bottom: none; }
+.error-count { background: rgba(232,85,62,0.15); color: var(--error); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
+.error-text { font-size: 13px; color: var(--text); }
+
+.empty-dash { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-dash-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-dash-title { font-family: 'Unbounded', sans-serif; font-size: 16px; margin-bottom: 8px; color: var(--text); }
+.empty-dash-sub { font-size: 14px; }
 </style>
 </head>
 <body>
@@ -121,14 +203,8 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
     <div class="login-logo">ServiceGuru</div>
     <div class="login-title">SG_Транскрибация</div>
     <div class="login-sub">Войдите чтобы начать</div>
-    <div class="field">
-      <label>Логин</label>
-      <input type="text" id="username" placeholder="Введите логин">
-    </div>
-    <div class="field">
-      <label>Пароль</label>
-      <input type="password" id="password" placeholder="Введите пароль">
-    </div>
+    <div class="field"><label>Логин</label><input type="text" id="username" placeholder="Введите логин"></div>
+    <div class="field"><label>Пароль</label><input type="password" id="password" placeholder="Введите пароль"></div>
     <button class="btn" id="login-btn">Войти</button>
     <div class="error-msg" id="login-error"></div>
   </div>
@@ -137,84 +213,113 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 <div id="app-screen">
   <header>
     <div class="header-logo">SG_Транскрибация</div>
-    <div class="header-user">
-      <span id="header-username"></span>
+    <div class="header-right">
+      <span class="header-username" id="header-username"></span>
       <button class="logout-btn" id="logout-btn">Выйти</button>
     </div>
   </header>
-  <div class="main">
-    <div class="upload-section">
 
-      <div class="mode-switcher">
-        <button class="mode-btn active" data-mode="sales">🔥 Продажа</button>
-        <button class="mode-btn" data-mode="renewal">🔄 Продление</button>
-        <button class="mode-btn" data-mode="general">🎙️ Просто аудио</button>
-      </div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" data-page="transcribe">🎙️ Анализ звонка</div>
+    <div class="nav-tab" data-page="dashboard">📊 Дашборд</div>
+  </div>
 
-      <div class="mode-desc" id="mode-desc" data-for="sales">
-        Анализ звонка по скрипту продаж ServiceGuru.Клуб — квалификация, возражения, оценка менеджера
-      </div>
+  <!-- TRANSCRIBE PAGE -->
+  <div class="page active" id="page-transcribe">
+    <div class="transcribe-layout">
+      <div class="upload-section">
 
-      <div class="upload-zone" id="drop-zone">
-        <input type="file" id="file-input" accept=".mp3,.ogg,.wav,.m4a,.mp4,.webm,.flac">
-        <div class="upload-icon">🎙️</div>
-        <div class="upload-title">Загрузите аудиофайл</div>
-        <div class="upload-sub">Перетащите файл или нажмите для выбора</div>
-        <div class="upload-formats">MP3 · OGG · WAV · M4A · FLAC · до 200 MB</div>
-      </div>
-
-      <div class="selected-file" id="selected-file">
-        <div>
-          <div class="file-name" id="file-name"></div>
-          <div class="file-size" id="file-size"></div>
+        <div class="mode-switcher">
+          <button class="mode-btn active" data-mode="sales">🔥 Продажа SG.Клуб</button>
+          <button class="mode-btn" data-mode="renewal">🔄 Продление</button>
+          <button class="mode-btn" data-mode="general">🎙️ Просто аудио</button>
         </div>
-      </div>
 
-      <div class="prompt-box">
-        <div class="prompt-label">💬 Дополнительный контекст <span>— необязательно</span></div>
-        <textarea id="user-prompt" placeholder="Добавьте контекст или уточнение. Например: имя менеджера, особенности клиента, на что обратить особое внимание"></textarea>
-        <div class="prompt-examples" id="prompt-examples">
-          <div class="prompt-chip" data-prompt="Менеджер новичок, первый месяц работы.">Новичок</div>
-          <div class="prompt-chip" data-prompt="Клиент уже отказывал ранее, повторный контакт.">Повторный</div>
-          <div class="prompt-chip" data-prompt="Крупная сеть, решение принимает комитет.">Крупная сеть</div>
-          <div class="prompt-chip" data-prompt="Обрати особое внимание на работу с ценовыми возражениями.">Цена</div>
+        <div class="mode-desc" id="mode-desc" data-for="sales">
+          Анализ звонка по скрипту продаж ServiceGuru.Клуб — квалификация, возражения, оценка менеджера
         </div>
-      </div>
 
-      <button class="btn" id="transcribe-btn" disabled>Расшифровать и проанализировать</button>
+        <div class="upload-zone" id="drop-zone">
+          <input type="file" id="file-input" accept=".mp3,.ogg,.wav,.m4a,.mp4,.webm,.flac">
+          <div class="upload-icon">🎙️</div>
+          <div class="upload-title">Загрузите аудиофайл</div>
+          <div class="upload-sub">Перетащите файл или нажмите для выбора</div>
+          <div class="upload-formats">MP3 · OGG · WAV · M4A · FLAC · до 200 MB</div>
+        </div>
 
-      <div class="progress-wrap" id="progress-wrap">
-        <div style="font-size:13px;color:var(--muted)">Обработка файла</div>
-        <div class="progress-bar-bg"><div class="progress-bar" id="progress-bar"></div></div>
-        <div class="progress-status" id="progress-status">Загружаю файл…</div>
-      </div>
+        <div class="selected-file" id="selected-file">
+          <div><div class="file-name" id="file-name"></div><div class="file-size" id="file-size"></div></div>
+        </div>
 
-      <div class="result-card" id="result-card">
-        <div class="result-header">
-          <div class="result-title">✅ Готово</div>
-          <div class="result-badges">
-            <span class="mode-badge" id="result-mode-badge"></span>
-            <button class="copy-btn" id="copy-btn">📋 Копировать</button>
+        <div class="meta-row">
+          <div class="meta-field">
+            <label>👤 Имя менеджера</label>
+            <input type="text" id="manager-name" placeholder="Например: Анна Иванова">
+          </div>
+          <div class="meta-field">
+            <label>🏢 Клиент (необязательно)</label>
+            <input type="text" id="client-name" placeholder="Название компании">
           </div>
         </div>
-        <div class="prompt-used" id="prompt-used"></div>
-        <div class="result-tabs">
-          <div class="tab active" data-tab="summary">Анализ</div>
-          <div class="tab" data-tab="transcript">Транскрипция</div>
+
+        <div class="prompt-box">
+          <div class="prompt-label">💬 Дополнительный контекст <span>— необязательно</span></div>
+          <textarea id="user-prompt" placeholder="Добавьте уточнение: особенности клиента, на что обратить внимание, имя клиента..."></textarea>
+          <div class="prompt-chips">
+            <div class="chip" data-prompt="Менеджер новичок, первый месяц работы.">Новичок</div>
+            <div class="chip" data-prompt="Клиент уже отказывал ранее, повторный контакт.">Повторный</div>
+            <div class="chip" data-prompt="Крупная сеть, решение принимает комитет.">Крупная сеть</div>
+            <div class="chip" data-prompt="Обрати особое внимание на работу с ценовыми возражениями.">Цена</div>
+          </div>
         </div>
-        <div class="tab-content active" id="tab-summary">
-          <div class="result-text" id="result-summary"></div>
+
+        <button class="btn" id="transcribe-btn" disabled>Расшифровать и проанализировать</button>
+
+        <div class="progress-wrap" id="progress-wrap">
+          <div style="font-size:13px;color:var(--muted)">Обработка файла</div>
+          <div class="progress-bar-bg"><div class="progress-bar" id="progress-bar"></div></div>
+          <div class="progress-status" id="progress-status">Загружаю файл…</div>
         </div>
-        <div class="tab-content" id="tab-transcript">
-          <div class="result-text" id="result-transcript"></div>
+
+        <div class="result-card" id="result-card">
+          <div class="result-header">
+            <div class="result-title">✅ Готово</div>
+            <div class="result-badges">
+              <span class="mode-badge" id="result-mode-badge"></span>
+              <span class="score-badge" id="result-score-badge"></span>
+              <button class="copy-btn" id="copy-btn">📋 Копировать</button>
+            </div>
+          </div>
+          <div class="result-tabs">
+            <div class="rtab active" data-rtab="analysis">Анализ</div>
+            <div class="rtab" data-rtab="transcript">Транскрипция</div>
+          </div>
+          <div class="rtab-content active" id="rtab-analysis">
+            <div class="result-text" id="result-summary"></div>
+          </div>
+          <div class="rtab-content" id="rtab-transcript">
+            <div class="result-text" id="result-transcript"></div>
+          </div>
         </div>
+
       </div>
 
+      <div class="history-section">
+        <div class="section-title">История</div>
+        <div id="history-list"><div class="history-empty">Звонков пока нет</div></div>
+      </div>
     </div>
+  </div>
 
-    <div class="history-section">
-      <div class="history-title">История</div>
-      <div id="history-list"><div class="history-empty">Запросов пока нет</div></div>
+  <!-- DASHBOARD PAGE -->
+  <div class="page" id="page-dashboard">
+    <div class="dashboard-layout">
+      <div id="dash-content">
+        <div class="empty-dash">
+          <div class="empty-dash-icon">📊</div>
+          <div class="empty-dash-title">Загрузка дашборда…</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -228,27 +333,24 @@ var pollInterval = null;
 
 var modeDescriptions = {
   sales: 'Анализ звонка по скрипту продаж ServiceGuru.Клуб — квалификация, возражения, оценка менеджера',
-  renewal: 'Анализ звонка на продление — здоровье аккаунта, риски оттока, готовность к продлению',
+  renewal: 'Анализ звонка на продление — настроение клиента, риски оттока, работа с возражениями',
   general: 'Расшифровка и общее саммери — темы, выводы, action items'
 };
 
-var modeLabels = {
-  sales: '🔥 Продажа',
-  renewal: '🔄 Продление',
-  general: '🎙️ Аудио'
-};
+var modeLabels = { sales: '🔥 Продажа SG.Клуб', renewal: '🔄 Продление', general: '🎙️ Аудио' };
 
-document.getElementById('login-btn').addEventListener('click', doLogin);
-document.getElementById('password').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') doLogin();
+// NAV
+document.querySelectorAll('.nav-tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+    this.classList.add('active');
+    document.getElementById('page-' + this.dataset.page).classList.add('active');
+    if (this.dataset.page === 'dashboard') loadDashboard();
+  });
 });
-document.getElementById('logout-btn').addEventListener('click', doLogout);
-document.getElementById('transcribe-btn').addEventListener('click', doTranscribe);
-document.getElementById('file-input').addEventListener('change', function() {
-  if (this.files[0]) onFileSelect(this.files[0]);
-});
-document.getElementById('copy-btn').addEventListener('click', copyAll);
 
+// MODE
 document.querySelectorAll('.mode-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
@@ -260,22 +362,36 @@ document.querySelectorAll('.mode-btn').forEach(function(btn) {
   });
 });
 
-document.querySelectorAll('.tab').forEach(function(tab) {
-  tab.addEventListener('click', function() { switchTab(this.dataset.tab); });
+// RESULT TABS
+document.querySelectorAll('.rtab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.rtab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.rtab-content').forEach(function(c) { c.classList.remove('active'); });
+    this.classList.add('active');
+    document.getElementById('rtab-' + this.dataset.rtab).classList.add('active');
+  });
 });
 
-document.querySelectorAll('.prompt-chip').forEach(function(chip) {
+// CHIPS
+document.querySelectorAll('.chip').forEach(function(chip) {
   chip.addEventListener('click', function() {
     document.getElementById('user-prompt').value = this.dataset.prompt;
   });
 });
 
+// LOGIN
+document.getElementById('login-btn').addEventListener('click', doLogin);
+document.getElementById('password').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
+document.getElementById('logout-btn').addEventListener('click', doLogout);
+document.getElementById('transcribe-btn').addEventListener('click', doTranscribe);
+document.getElementById('file-input').addEventListener('change', function() { if (this.files[0]) onFileSelect(this.files[0]); });
+document.getElementById('copy-btn').addEventListener('click', copyAll);
+
 var dz = document.getElementById('drop-zone');
 dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.style.borderColor = 'var(--accent)'; });
 dz.addEventListener('dragleave', function() { dz.style.borderColor = ''; });
 dz.addEventListener('drop', function(e) {
-  e.preventDefault();
-  dz.style.borderColor = '';
+  e.preventDefault(); dz.style.borderColor = '';
   if (e.dataTransfer.files[0]) onFileSelect(e.dataTransfer.files[0]);
 });
 
@@ -290,40 +406,24 @@ function onFileSelect(file) {
 async function doLogin() {
   var btn = document.getElementById('login-btn');
   var err = document.getElementById('login-error');
-  btn.disabled = true;
-  btn.textContent = 'Вхожу…';
-  err.textContent = '';
+  btn.disabled = true; btn.textContent = 'Вхожу…'; err.textContent = '';
   try {
     var r = await fetch('/api/login', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        username: document.getElementById('username').value,
-        password: document.getElementById('password').value
-      })
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: document.getElementById('username').value, password: document.getElementById('password').value})
     });
     var d = await r.json();
-    if (d.ok) {
-      showApp(d.username);
-    } else {
-      err.textContent = d.error || 'Ошибка входа';
-      btn.disabled = false;
-      btn.textContent = 'Войти';
-    }
-  } catch(e) {
-    err.textContent = 'Ошибка соединения';
-    btn.disabled = false;
-    btn.textContent = 'Войти';
-  }
+    if (d.ok) { showApp(d.username); }
+    else { err.textContent = d.error || 'Ошибка входа'; btn.disabled = false; btn.textContent = 'Войти'; }
+  } catch(e) { err.textContent = 'Ошибка соединения'; btn.disabled = false; btn.textContent = 'Войти'; }
 }
 
 async function doLogout() {
   await fetch('/api/logout', {method: 'POST'});
   document.getElementById('app-screen').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
-  var btn = document.getElementById('login-btn');
-  btn.disabled = false;
-  btn.textContent = 'Войти';
+  document.getElementById('login-btn').disabled = false;
+  document.getElementById('login-btn').textContent = 'Войти';
 }
 
 function showApp(username) {
@@ -344,19 +444,19 @@ async function doTranscribe() {
   fd.append('file', selectedFile);
   fd.append('prompt', document.getElementById('user-prompt').value);
   fd.append('mode', currentMode);
+  fd.append('manager', document.getElementById('manager-name').value);
   try {
     var r = await fetch('/api/transcribe', {method: 'POST', body: fd});
     var d = await r.json();
     if (!d.ok) {
       document.getElementById('progress-wrap').classList.remove('show');
       alert('Ошибка: ' + (d.error || 'Неизвестная ошибка'));
-      btn.disabled = false;
-      return;
+      btn.disabled = false; return;
     }
     startPolling(d.job_id);
   } catch(e) {
     document.getElementById('progress-wrap').classList.remove('show');
-    alert('Ошибка соединения при загрузке файла.');
+    alert('Ошибка соединения.');
     btn.disabled = false;
   }
 }
@@ -396,6 +496,12 @@ function setProgress(pct, status) {
   document.getElementById('progress-status').textContent = status;
 }
 
+function scoreClass(s) {
+  if (s >= 7) return 'high';
+  if (s >= 4) return 'mid';
+  return 'low';
+}
+
 function showResult(d) {
   currentSummary = d.summary;
   currentTranscript = d.transcript;
@@ -406,42 +512,31 @@ function showResult(d) {
   badge.textContent = modeLabels[d.mode] || d.mode;
   badge.className = 'mode-badge ' + (d.mode || 'general');
 
-  var promptEl = document.getElementById('prompt-used');
-  if (d.prompt && d.prompt.trim()) {
-    promptEl.innerHTML = '<strong>Контекст:</strong> ' + d.prompt;
-    promptEl.classList.add('show');
+  var scoreBadge = document.getElementById('result-score-badge');
+  var score = d.metrics && d.metrics.scores && d.metrics.scores.overall;
+  if (score && score > 0) {
+    scoreBadge.textContent = '⭐ ' + score + '/10';
+    scoreBadge.className = 'score-badge ' + scoreClass(score);
+    scoreBadge.style.display = '';
   } else {
-    promptEl.classList.remove('show');
+    scoreBadge.style.display = 'none';
   }
 
   document.getElementById('result-card').classList.add('show');
   document.getElementById('transcribe-btn').disabled = false;
-  switchTab('summary');
 
-  var modeHeader = d.mode === 'sales' ? 'АНАЛИЗ ЗВОНКА — ПРОДАЖА' : d.mode === 'renewal' ? 'АНАЛИЗ ЗВОНКА — ПРОДЛЕНИЕ' : 'АНАЛИЗ АУДИО';
-  var result = "==================================================\n" + modeHeader + "\n==================================================\n\n";
-  if (d.prompt && d.prompt.trim()) {
-    result += "Контекст: " + d.prompt + "\n\n";
-  }
-  result += d.summary + "\n\n\n==================================================\nПОЛНАЯ ТРАНСКРИПЦИЯ\n==================================================\n\n" + d.transcript;
+  var modeHeader = d.mode === 'sales' ? 'АНАЛИЗ ЗВОНКА — ПРОДАЖА SG.КЛУБ' : d.mode === 'renewal' ? 'АНАЛИЗ ЗВОНКА — ПРОДЛЕНИЕ' : 'АНАЛИЗ АУДИО';
+  var result = "==================================================\n" + modeHeader + "\n";
+  if (d.manager) result += "Менеджер: " + d.manager + "\n";
+  result += "==================================================\n\n" + d.summary + "\n\n\n==================================================\nПОЛНАЯ ТРАНСКРИПЦИЯ\n==================================================\n\n" + d.transcript;
 
   var blob = new Blob([result], {type: 'text/plain;charset=utf-8'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = (d.filename || 'transcription').replace(/\.[^.]+$/, '') + '_' + (d.mode || 'result') + '.txt';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.download = (d.filename || 'call').replace(/\.[^.]+$/, '') + '_' + (d.mode || 'result') + '.txt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-}
-
-function switchTab(name) {
-  document.querySelectorAll('.tab').forEach(function(t) {
-    t.classList.toggle('active', t.dataset.tab === name);
-  });
-  document.getElementById('tab-summary').classList.toggle('active', name === 'summary');
-  document.getElementById('tab-transcript').classList.toggle('active', name === 'transcript');
 }
 
 function copyAll() {
@@ -458,19 +553,95 @@ async function loadHistory() {
   var d = await r.json();
   var el = document.getElementById('history-list');
   if (!d.history || d.history.length === 0) {
-    el.innerHTML = '<div class="history-empty">Запросов пока нет</div>';
-    return;
+    el.innerHTML = '<div class="history-empty">Звонков пока нет</div>'; return;
   }
-  var modeNames = {sales: '🔥 Продажа', renewal: '🔄 Продление', general: '🎙️ Аудио'};
   el.innerHTML = d.history.map(function(h) {
     var modeClass = h.mode || 'general';
-    var modeName = modeNames[modeClass] || modeClass;
+    var modeName = modeLabels[modeClass] || modeClass;
+    var managerBadge = h.manager ? '<span class="hbadge manager">' + h.manager + '</span>' : '';
     return '<div class="history-item">' +
       '<div class="history-item-name">' + h.filename + '</div>' +
       '<div class="history-item-date">' + h.date + '</div>' +
-      '<div class="history-item-mode ' + modeClass + '">' + modeName + '</div>' +
+      '<div class="history-item-meta"><span class="hbadge ' + modeClass + '">' + modeName + '</span>' + managerBadge + '</div>' +
       '</div>';
   }).join('');
+}
+
+async function loadDashboard() {
+  document.getElementById('dash-content').innerHTML = '<div class="empty-dash"><div class="empty-dash-icon">⏳</div><div class="empty-dash-title">Загружаю данные…</div></div>';
+  var r = await fetch('/api/dashboard');
+  var d = await r.json();
+
+  if (!d.scored_calls || d.scored_calls === 0) {
+    document.getElementById('dash-content').innerHTML = '<div class="empty-dash"><div class="empty-dash-icon">📊</div><div class="empty-dash-title">Нет данных для дашборда</div><div class="empty-dash-sub">Загрузите звонки в режиме «Продажа SG.Клуб» или «Продление» — после анализа здесь появятся метрики</div></div>';
+    return;
+  }
+
+  var avgAll = d.managers.length > 0 ? (d.managers.reduce(function(s, m) { return s + m.avg_score; }, 0) / d.managers.length).toFixed(1) : 0;
+  var best = d.managers[0];
+  var worst = d.managers[d.managers.length - 1];
+
+  var html = '';
+
+  // Stats
+  html += '<div class="dash-stats">';
+  html += '<div class="stat-card"><div class="stat-label">Всего звонков</div><div class="stat-value accent">' + d.total_calls + '</div></div>';
+  html += '<div class="stat-card"><div class="stat-label">Оценено звонков</div><div class="stat-value">' + d.scored_calls + '</div></div>';
+  html += '<div class="stat-card"><div class="stat-label">Средняя оценка</div><div class="stat-value ' + (avgAll >= 7 ? 'success' : avgAll >= 4 ? 'warn' : 'err') + '">' + avgAll + '</div></div>';
+  html += '<div class="stat-card"><div class="stat-label">Менеджеров</div><div class="stat-value">' + d.managers.length + '</div></div>';
+  html += '</div>';
+
+  // Top errors
+  if (d.top_errors && d.top_errors.length > 0) {
+    html += '<div class="dash-card" style="margin-bottom:20px">';
+    html += '<div class="dash-card-title">🚨 Топ ошибок по всем звонкам</div>';
+    d.top_errors.forEach(function(e) {
+      html += '<div class="top-error-item"><span class="error-count">' + e.count + 'x</span><span class="error-text">' + e.error + '</span></div>';
+    });
+    html += '</div>';
+  }
+
+  // Manager cards
+  html += '<div class="manager-cards">';
+  d.managers.forEach(function(m, i) {
+    var sc = scoreClass(m.avg_score);
+    var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+    html += '<div class="manager-card">';
+    html += '<div class="manager-header">';
+    html += '<div><div class="manager-name">' + medal + ' ' + m.name + '</div><div class="manager-calls">' + m.calls + ' звонк' + (m.calls === 1 ? '' : m.calls < 5 ? 'а' : 'ов') + '</div></div>';
+    html += '<div class="big-score ' + sc + '">' + m.avg_score + '<span style="font-size:16px;color:var(--muted)">/10</span></div>';
+    html += '</div>';
+    html += '<div class="manager-body">';
+
+    // Errors
+    html += '<div>';
+    html += '<div class="manager-section-title">⚠️ Главные ошибки</div>';
+    if (m.top_errors && m.top_errors.length > 0) {
+      html += '<ul class="error-list">';
+      m.top_errors.forEach(function(e) { html += '<li>' + e + '</li>'; });
+      html += '</ul>';
+    } else {
+      html += '<div style="font-size:13px;color:var(--muted)">Ошибок не выявлено</div>';
+    }
+    html += '</div>';
+
+    // Tasks
+    html += '<div>';
+    html += '<div class="manager-section-title">📋 Задания на отработку</div>';
+    if (m.tasks && m.tasks.length > 0) {
+      html += '<ul class="task-list">';
+      m.tasks.forEach(function(t) { html += '<li>' + t + '</li>'; });
+      html += '</ul>';
+    } else {
+      html += '<div style="font-size:13px;color:var(--muted)">Заданий нет</div>';
+    }
+    html += '</div>';
+
+    html += '</div></div>';
+  });
+  html += '</div>';
+
+  document.getElementById('dash-content').innerHTML = html;
 }
 
 (async function init() {
