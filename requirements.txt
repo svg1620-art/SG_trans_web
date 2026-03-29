@@ -1,3 +1,16 @@
+[build]
+builder = "nixpacks"
+
+[phases.setup]
+nixPkgs = ["ffmpeg", "postgresql"]
+
+[deploy]
+startCommand = "gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300 --workers 2"
+```
+
+И `requirements.txt` → карандаш → замени на:
+```
 flask==3.0.3
 openai>=1.30.0
 gunicorn==22.0.0
+psycopg2-binary==2.9.9
