@@ -27,8 +27,10 @@ body { font-family: 'Onest', sans-serif; background: var(--bg); color: var(--tex
 .login-sub { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
 .field { margin-bottom: 16px; }
 .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-.field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; }
-.field input:focus { border-color: var(--accent); }
+.field input, .field textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; }
+.field input:focus, .field textarea:focus { border-color: var(--accent); }
+.field textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+.field-hint { font-size: 12px; color: var(--muted); margin-top: 5px; }
 .btn { display: flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 13px 24px; font-family: 'Onest', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; width: 100%; transition: opacity 0.2s; }
 .btn:hover { opacity: 0.9; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -39,18 +41,27 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .header-user { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--muted); }
 .logout-btn { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: 'Onest', sans-serif; font-size: 13px; padding: 6px 12px; cursor: pointer; }
 .main { flex: 1; display: grid; grid-template-columns: 1fr 300px; gap: 24px; max-width: 1200px; width: 100%; margin: 0 auto; padding: 32px; }
+@media (max-width: 768px) { .main { grid-template-columns: 1fr; padding: 16px; } }
 .upload-section { display: flex; flex-direction: column; gap: 20px; }
-.upload-zone { background: var(--surface); border: 2px dashed var(--border); border-radius: 16px; padding: 48px 32px; text-align: center; cursor: pointer; position: relative; transition: border-color 0.2s; }
+.upload-zone { background: var(--surface); border: 2px dashed var(--border); border-radius: 16px; padding: 40px 32px; text-align: center; cursor: pointer; position: relative; transition: border-color 0.2s; }
 .upload-zone:hover { border-color: var(--accent); }
 .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
-.upload-icon { font-size: 40px; margin-bottom: 16px; }
-.upload-title { font-family: 'Unbounded', sans-serif; font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.upload-icon { font-size: 36px; margin-bottom: 12px; }
+.upload-title { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 600; margin-bottom: 6px; }
 .upload-sub { font-size: 13px; color: var(--muted); }
-.upload-formats { font-size: 12px; color: var(--accent2); margin-top: 8px; }
+.upload-formats { font-size: 12px; color: var(--accent2); margin-top: 6px; }
 .selected-file { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: none; align-items: center; gap: 12px; }
 .selected-file.show { display: flex; }
 .file-name { font-size: 14px; font-weight: 500; }
 .file-size { font-size: 12px; color: var(--muted); }
+.prompt-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.prompt-label { font-size: 13px; font-weight: 500; color: var(--accent2); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.prompt-label-hint { font-size: 12px; color: var(--muted); font-weight: 400; }
+.prompt-box textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; resize: vertical; min-height: 80px; line-height: 1.5; transition: border-color 0.2s; }
+.prompt-box textarea:focus { border-color: var(--accent); }
+.prompt-examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.prompt-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 12px; color: var(--muted); cursor: pointer; transition: border-color 0.2s, color 0.2s; }
+.prompt-chip:hover { border-color: var(--accent2); color: var(--accent2); }
 .progress-wrap { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
 .progress-wrap.show { display: block; }
 .progress-bar-bg { background: var(--surface2); border-radius: 99px; height: 6px; overflow: hidden; margin: 12px 0 10px; }
@@ -58,21 +69,27 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .progress-status { font-size: 14px; color: var(--accent2); }
 .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; display: none; }
 .result-card.show { display: block; }
-.result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .result-title { font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 600; }
 .copy-btn { background: var(--success); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-family: 'Onest', sans-serif; font-size: 13px; cursor: pointer; }
+.prompt-used { background: var(--surface2); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; color: var(--muted); display: none; }
+.prompt-used.show { display: block; }
+.prompt-used strong { color: var(--accent2); }
 .result-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
 .tab { padding: 8px 16px; font-size: 13px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-.result-text { font-size: 14px; line-height: 1.7; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
+.result-text { font-size: 14px; line-height: 1.7; white-space: pre-wrap; max-height: 420px; overflow-y: auto; }
+.result-text::-webkit-scrollbar { width: 4px; }
+.result-text::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .history-section { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; height: fit-content; }
 .history-title { font-family: 'Unbounded', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-bottom: 16px; }
 .history-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 24px 0; }
 .history-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
 .history-item-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.history-item-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.history-item-date { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.history-item-prompt { font-size: 11px; color: var(--accent2); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 </head>
 <body>
@@ -105,6 +122,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
   </header>
   <div class="main">
     <div class="upload-section">
+
       <div class="upload-zone" id="drop-zone">
         <input type="file" id="file-input" accept=".mp3,.ogg,.wav,.m4a,.mp4,.webm,.flac">
         <div class="upload-icon">🎙️</div>
@@ -112,25 +130,45 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
         <div class="upload-sub">Перетащите файл или нажмите для выбора</div>
         <div class="upload-formats">MP3 · OGG · WAV · M4A · FLAC · до 200 MB</div>
       </div>
+
       <div class="selected-file" id="selected-file">
         <div>
           <div class="file-name" id="file-name"></div>
           <div class="file-size" id="file-size"></div>
         </div>
       </div>
+
+      <div class="prompt-box">
+        <div class="prompt-label">
+          💬 Контекст и задача
+          <span class="prompt-label-hint">— необязательно</span>
+        </div>
+        <textarea id="user-prompt" placeholder="Опишите контекст или задайте вопрос. Например: «Это встреча по продажам с клиентом. Выдели возражения и как на них ответили» или «Интервью с кандидатом. Оцени его компетенции»"></textarea>
+        <div class="prompt-examples">
+          <div class="prompt-chip" data-prompt="Встреча с клиентом по продажам. Выдели возражения клиента и как на них ответили.">Продажи</div>
+          <div class="prompt-chip" data-prompt="Интервью с кандидатом на должность. Оцени компетенции и выдели сильные и слабые стороны.">Интервью</div>
+          <div class="prompt-chip" data-prompt="Рабочая встреча команды. Выдели принятые решения и задачи с ответственными.">Митап</div>
+          <div class="prompt-chip" data-prompt="Разговор с клиентом о проблеме или жалобе. Выдели суть проблемы и договорённости по решению.">Поддержка</div>
+          <div class="prompt-chip" data-prompt="Переговоры. Выдели позиции сторон, точки согласия и разногласия.">Переговоры</div>
+        </div>
+      </div>
+
       <button class="btn" id="transcribe-btn" disabled>Расшифровать и проанализировать</button>
+
       <div class="progress-wrap" id="progress-wrap">
         <div style="font-size:13px;color:var(--muted)">Обработка файла</div>
         <div class="progress-bar-bg"><div class="progress-bar" id="progress-bar"></div></div>
         <div class="progress-status" id="progress-status">Загружаю файл…</div>
       </div>
+
       <div class="result-card" id="result-card">
         <div class="result-header">
           <div class="result-title">✅ Готово</div>
           <button class="copy-btn" id="copy-btn">📋 Копировать всё</button>
         </div>
+        <div class="prompt-used" id="prompt-used"></div>
         <div class="result-tabs">
-          <div class="tab active" data-tab="summary">Саммери</div>
+          <div class="tab active" data-tab="summary">Анализ</div>
           <div class="tab" data-tab="transcript">Транскрипция</div>
         </div>
         <div class="tab-content active" id="tab-summary">
@@ -140,7 +178,9 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
           <div class="result-text" id="result-transcript"></div>
         </div>
       </div>
+
     </div>
+
     <div class="history-section">
       <div class="history-title">История</div>
       <div id="history-list"><div class="history-empty">Запросов пока нет</div></div>
@@ -166,15 +206,22 @@ document.getElementById('file-input').addEventListener('change', function() {
 document.getElementById('copy-btn').addEventListener('click', copyAll);
 
 document.querySelectorAll('.tab').forEach(function(tab) {
-  tab.addEventListener('click', function() {
-    switchTab(this.dataset.tab);
+  tab.addEventListener('click', function() { switchTab(this.dataset.tab); });
+});
+
+document.querySelectorAll('.prompt-chip').forEach(function(chip) {
+  chip.addEventListener('click', function() {
+    document.getElementById('user-prompt').value = this.dataset.prompt;
+    document.getElementById('user-prompt').focus();
   });
 });
 
 var dz = document.getElementById('drop-zone');
-dz.addEventListener('dragover', function(e) { e.preventDefault(); });
+dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.style.borderColor = 'var(--accent)'; });
+dz.addEventListener('dragleave', function() { dz.style.borderColor = ''; });
 dz.addEventListener('drop', function(e) {
   e.preventDefault();
+  dz.style.borderColor = '';
   if (e.dataTransfer.files[0]) onFileSelect(e.dataTransfer.files[0]);
 });
 
@@ -241,6 +288,7 @@ async function doTranscribe() {
   setProgress(5, 'Загружаю файл…');
   var fd = new FormData();
   fd.append('file', selectedFile);
+  fd.append('prompt', document.getElementById('user-prompt').value);
   try {
     var r = await fetch('/api/transcribe', {method: 'POST', body: fd});
     var d = await r.json();
@@ -269,7 +317,7 @@ function startPolling(jobId) {
         dots = (dots + 1) % 4;
         setProgress(40, 'Расшифровываю аудио' + '...'.slice(0, dots + 1));
       } else if (d.status === 'summarizing') {
-        setProgress(80, 'Делаю саммери и анализ…');
+        setProgress(80, 'Делаю анализ…');
       } else if (d.status === 'done') {
         clearInterval(pollInterval);
         setProgress(100, 'Готово!');
@@ -298,10 +346,25 @@ function showResult(d) {
   currentTranscript = d.transcript;
   document.getElementById('result-summary').textContent = d.summary;
   document.getElementById('result-transcript').textContent = d.transcript;
+
+  var promptEl = document.getElementById('prompt-used');
+  if (d.prompt && d.prompt.trim()) {
+    promptEl.innerHTML = '<strong>Контекст:</strong> ' + d.prompt;
+    promptEl.classList.add('show');
+  } else {
+    promptEl.classList.remove('show');
+  }
+
   document.getElementById('result-card').classList.add('show');
   document.getElementById('transcribe-btn').disabled = false;
   switchTab('summary');
-  var result = "==================================================\nСАММЕРИ И АНАЛИЗ\n==================================================\n\n" + d.summary + "\n\n\n==================================================\nПОЛНАЯ ТРАНСКРИПЦИЯ\n==================================================\n\n" + d.transcript;
+
+  var result = "==================================================\nАНАЛИЗ\n==================================================\n\n";
+  if (d.prompt && d.prompt.trim()) {
+    result += "Контекст: " + d.prompt + "\n\n";
+  }
+  result += d.summary + "\n\n\n==================================================\nПОЛНАЯ ТРАНСКРИПЦИЯ\n==================================================\n\n" + d.transcript;
+
   var blob = new Blob([result], {type: 'text/plain;charset=utf-8'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
@@ -322,7 +385,7 @@ function switchTab(name) {
 }
 
 function copyAll() {
-  var text = "САММЕРИ И АНАЛИЗ\n\n" + currentSummary + "\n\n\nПОЛНАЯ ТРАНСКРИПЦИЯ\n\n" + currentTranscript;
+  var text = "АНАЛИЗ\n\n" + currentSummary + "\n\n\nПОЛНАЯ ТРАНСКРИПЦИЯ\n\n" + currentTranscript;
   navigator.clipboard.writeText(text).then(function() {
     var btn = document.getElementById('copy-btn');
     btn.textContent = '✅ Скопировано!';
@@ -339,7 +402,8 @@ async function loadHistory() {
     return;
   }
   el.innerHTML = d.history.map(function(h) {
-    return '<div class="history-item"><div class="history-item-name">' + h.filename + '</div><div class="history-item-date">' + h.date + '</div></div>';
+    var promptLine = h.prompt ? '<div class="history-item-prompt">💬 ' + h.prompt + '</div>' : '';
+    return '<div class="history-item"><div class="history-item-name">' + h.filename + '</div><div class="history-item-date">' + h.date + '</div>' + promptLine + '</div>';
   }).join('');
 }
 
