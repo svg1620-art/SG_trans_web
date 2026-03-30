@@ -479,9 +479,25 @@ def index():
 @app.route("/api/login", methods=["POST"])
 def login():
     d = request.json
-    if USERS.get(d.get("username","")) == d.get("password",""):
-        session["user"] = d["username"]
-        return jsonify({"ok": True, "username": d["username"], "is_admin": d["username"] == ADMIN_USER})
+    username = d.get("username", "")
+    password = d.get("password", "")
+    logger.info(f"Login attempt: username='{username}', admin_user='{ADMIN_USER}', match={username == ADMIN_USER and password == ADMIN_PASS}")
+
+    if username == ADMIN_USER and password == ADMIN_PASS:
+        session["user"] = ADMIN_USER
+        session["account"] = ADMIN_USER
+        session["is_admin"] = True
+        session["manager_name"] = None
+        return jsonify({"ok": True, "username": ADMIN_USER, "is_admin": True, "manager_name": None})
+
+    emp = check_employee_login(username, password)
+    if emp:
+        session["user"] = username
+        session["account"] = emp["account"]
+        session["is_admin"] = False
+        session["manager_name"] = emp["name"]
+        return jsonify({"ok": True, "username": username, "is_admin": False, "manager_name": emp["name"]})
+
     return jsonify({"error": "Неверный логин или пароль"}), 401
 
 
