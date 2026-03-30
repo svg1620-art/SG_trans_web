@@ -39,19 +39,18 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .header-logo { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: var(--accent2); text-transform: uppercase; }
 .header-right { display: flex; align-items: center; gap: 16px; }
 .header-username { font-size: 14px; color: var(--muted); }
+.header-role { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: rgba(108,92,231,0.15); color: var(--accent2); }
 .logout-btn { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: 'Onest', sans-serif; font-size: 13px; padding: 6px 12px; cursor: pointer; }
 
 .nav-tabs { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; gap: 0; overflow-x: auto; flex-shrink: 0; }
 .nav-tab { padding: 14px 18px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; transition: color 0.2s, border-color 0.2s; }
 .nav-tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
 .nav-tab:hover { color: var(--text); }
-.nav-tab.admin-only { display: none; }
-.nav-tab.admin-only.show { display: block; }
+.nav-tab.hidden { display: none; }
 
 .page { display: none; flex: 1; overflow-y: auto; }
 .page.active { display: flex; flex-direction: column; }
 
-/* TRANSCRIBE */
 .transcribe-layout { display: grid; grid-template-columns: 1fr 300px; gap: 24px; max-width: 1200px; width: 100%; margin: 0 auto; padding: 32px; }
 @media (max-width: 768px) { .transcribe-layout { grid-template-columns: 1fr; padding: 16px; } }
 .upload-section { display: flex; flex-direction: column; gap: 20px; }
@@ -85,6 +84,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .meta-field input, .meta-field select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; }
 .meta-field input:focus, .meta-field select:focus { border-color: var(--accent); }
 .meta-field select option { background: var(--surface2); }
+.manager-fixed { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--accent2); font-weight: 500; }
 
 .prompt-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
 .prompt-label { font-size: 13px; font-weight: 500; color: var(--accent2); margin-bottom: 8px; }
@@ -149,16 +149,13 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .dash-sub-tab.active[data-dash="sales"] { border-color: var(--sales); color: var(--sales); background: rgba(9,132,227,0.1); }
 .dash-sub-tab.active[data-dash="renewal"] { border-color: var(--renewal); color: var(--renewal); background: rgba(0,206,201,0.1); }
 
-/* FILTERS */
 .filters-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
 .filter-group { display: flex; flex-direction: column; gap: 4px; }
 .filter-group label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.filter-group input, .filter-group select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 13px; outline: none; min-width: 140px; }
-.filter-group input:focus, .filter-group select:focus { border-color: var(--accent); }
+.filter-group input, .filter-group select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 13px; outline: none; min-width: 130px; }
 .filter-group select option { background: var(--surface2); }
-.filter-apply { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-family: 'Onest', sans-serif; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.filter-apply { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-family: 'Onest', sans-serif; font-size: 13px; cursor: pointer; }
 .filter-reset { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 9px 14px; color: var(--muted); font-family: 'Onest', sans-serif; font-size: 13px; cursor: pointer; }
-.filter-reset:hover { border-color: var(--accent2); color: var(--text); }
 
 .dash-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
 @media (max-width: 768px) { .dash-stats { grid-template-columns: repeat(2, 1fr); } }
@@ -179,7 +176,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 
 .manager-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 16px; }
 .manager-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
-.manager-name { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 600; }
+.manager-name-title { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 600; }
 .manager-calls { font-size: 13px; color: var(--muted); margin-top: 4px; }
 .big-score { font-family: 'Unbounded', sans-serif; font-size: 36px; font-weight: 700; }
 .big-score.high { color: var(--success); }
@@ -206,24 +203,31 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
 .page-title { font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 600; }
 .emp-list { display: flex; flex-direction: column; gap: 10px; }
-.emp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 16px; }
-.emp-name { flex: 1; font-size: 15px; font-weight: 500; }
+.emp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.emp-info { flex: 1; }
+.emp-name { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+.emp-login { font-size: 12px; color: var(--muted); }
+.emp-badges { display: flex; gap: 6px; flex-wrap: wrap; }
 .emp-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
 .emp-badge.in-dash { background: rgba(0,184,148,0.15); color: var(--success); }
 .emp-badge.not-dash { background: var(--surface2); color: var(--muted); }
+.emp-badge.has-login { background: rgba(108,92,231,0.15); color: var(--accent2); }
 .emp-actions { display: flex; gap: 8px; }
 
 /* MODAL */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; display: none; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
 .modal-overlay.show { display: flex; }
-.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 100%; max-width: 440px; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 100%; max-width: 460px; }
 .modal-title { font-family: 'Unbounded', sans-serif; font-size: 16px; font-weight: 600; margin-bottom: 24px; }
 .modal-field { margin-bottom: 16px; }
 .modal-field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-.modal-field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; }
+.modal-field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; }
 .modal-field input:focus { border-color: var(--accent); }
-.checkbox-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; }
-.checkbox-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+.modal-field .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.modal-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+.modal-section-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; }
+.checkbox-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.checkbox-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
 .checkbox-row label { font-size: 14px; cursor: pointer; }
 .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
 .modal-actions .btn { flex: 1; }
@@ -247,6 +251,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
   <header>
     <div class="header-logo">SG_Транскрибация</div>
     <div class="header-right">
+      <span class="header-role" id="header-role"></span>
       <span class="header-username" id="header-username"></span>
       <button class="logout-btn" id="logout-btn">Выйти</button>
     </div>
@@ -255,7 +260,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
   <div class="nav-tabs">
     <div class="nav-tab active" data-page="transcribe">🎙️ Анализ звонка</div>
     <div class="nav-tab" data-page="dashboard">📊 Дашборд</div>
-    <div class="nav-tab admin-only" data-page="employees" id="nav-employees">👥 Сотрудники</div>
+    <div class="nav-tab hidden" data-page="employees" id="nav-employees">👥 Сотрудники</div>
   </div>
 
   <!-- TRANSCRIBE -->
@@ -283,11 +288,14 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
         </div>
 
         <div class="meta-row">
-          <div class="meta-field">
+          <div class="meta-field" id="manager-field-wrap">
             <label>👤 Менеджер</label>
             <select id="manager-select">
               <option value="">— Выберите менеджера —</option>
             </select>
+            <div id="manager-fixed-wrap" style="display:none">
+              <div class="manager-fixed" id="manager-fixed-name"></div>
+            </div>
           </div>
           <div class="meta-field">
             <label>🏢 Клиент (необязательно)</label>
@@ -348,21 +356,18 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
         <button class="dash-sub-tab" data-dash="sales">📋 Продажа SG</button>
         <button class="dash-sub-tab" data-dash="renewal">🔄 Продление</button>
       </div>
-
       <div class="filters-bar">
         <div class="filter-group">
           <label>Менеджер</label>
-          <select id="filter-manager">
-            <option value="">Все менеджеры</option>
-          </select>
+          <select id="filter-manager"><option value="">Все менеджеры</option></select>
         </div>
         <div class="filter-group">
           <label>Оценка от</label>
-          <input type="number" id="filter-score-min" min="1" max="10" placeholder="1">
+          <input type="number" id="filter-score-min" min="1" max="10" placeholder="1" style="width:80px">
         </div>
         <div class="filter-group">
           <label>Оценка до</label>
-          <input type="number" id="filter-score-max" min="1" max="10" placeholder="10">
+          <input type="number" id="filter-score-max" min="1" max="10" placeholder="10" style="width:80px">
         </div>
         <div class="filter-group">
           <label>Дата от</label>
@@ -375,7 +380,6 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
         <button class="filter-apply" onclick="applyFilters()">Применить</button>
         <button class="filter-reset" onclick="resetFilters()">Сбросить</button>
       </div>
-
       <div id="dash-content">
         <div class="empty-dash"><div class="empty-dash-icon">📊</div><div class="empty-dash-title">Загрузка…</div></div>
       </div>
@@ -400,14 +404,30 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <div class="modal-title" id="modal-title">Добавить сотрудника</div>
+
     <div class="modal-field">
-      <label>Имя и фамилия</label>
+      <label>Имя и фамилия *</label>
       <input type="text" id="modal-emp-name" placeholder="Например: Анна Иванова">
     </div>
     <div class="checkbox-row">
       <input type="checkbox" id="modal-in-dashboard" checked>
       <label for="modal-in-dashboard">Включить в дашборд и список менеджеров</label>
     </div>
+
+    <hr class="modal-divider">
+    <div class="modal-section-title">🔐 Доступ в систему</div>
+
+    <div class="modal-field">
+      <label>Логин</label>
+      <input type="text" id="modal-emp-login" placeholder="Например: anna.ivanova" autocomplete="off">
+      <div class="hint">Оставьте пустым если доступ не нужен</div>
+    </div>
+    <div class="modal-field">
+      <label id="modal-password-label">Пароль</label>
+      <input type="password" id="modal-emp-password" placeholder="Минимум 4 символа" autocomplete="new-password">
+      <div class="hint" id="modal-password-hint">Обязателен если указан логин</div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal()">Отмена</button>
       <button class="btn" id="modal-save-btn" onclick="saveEmployee()">Сохранить</button>
@@ -423,6 +443,7 @@ var currentMode = 'sales_club';
 var currentDash = 'all';
 var pollInterval = null;
 var isAdmin = false;
+var currentManagerName = null;
 var editingEmpId = null;
 var allEmployees = [];
 
@@ -432,10 +453,8 @@ var modeDescriptions = {
   renewal: 'Анализ звонка на продление — настроение клиента, риски оттока, работа с возражениями',
   general: 'Расшифровка и общее саммери — темы, выводы, action items'
 };
-
 var modeLabels = { sales_club: '🔥 SG.Клуб', sales: '📋 Продажа SG', renewal: '🔄 Продление', general: '🎙️ Аудио' };
 
-// NAV
 document.querySelectorAll('.nav-tab').forEach(function(tab) {
   tab.addEventListener('click', function() {
     document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
@@ -448,7 +467,6 @@ document.querySelectorAll('.nav-tab').forEach(function(tab) {
   });
 });
 
-// MODE
 document.querySelectorAll('.mode-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
@@ -460,7 +478,6 @@ document.querySelectorAll('.mode-btn').forEach(function(btn) {
   });
 });
 
-// DASH SUB TABS
 document.querySelectorAll('.dash-sub-tab').forEach(function(tab) {
   tab.addEventListener('click', function() {
     document.querySelectorAll('.dash-sub-tab').forEach(function(t) { t.classList.remove('active'); });
@@ -470,7 +487,6 @@ document.querySelectorAll('.dash-sub-tab').forEach(function(tab) {
   });
 });
 
-// RESULT TABS
 document.querySelectorAll('.rtab').forEach(function(tab) {
   tab.addEventListener('click', function() {
     document.querySelectorAll('.rtab').forEach(function(t) { t.classList.remove('active'); });
@@ -502,7 +518,7 @@ dz.addEventListener('drop', function(e) {
 function onFileSelect(file) {
   selectedFile = file;
   document.getElementById('file-name').textContent = file.name;
-  document.getElementById('file-size').textContent = (file.size / (1024*1024)).toFixed(1) + ' MB';
+  document.getElementById('file-size').textContent = (file.size/(1024*1024)).toFixed(1) + ' MB';
   document.getElementById('selected-file').classList.add('show');
   document.getElementById('transcribe-btn').disabled = false;
 }
@@ -517,7 +533,7 @@ async function doLogin() {
       body: JSON.stringify({username: document.getElementById('username').value, password: document.getElementById('password').value})
     });
     var d = await r.json();
-    if (d.ok) { showApp(d.username, d.is_admin); }
+    if (d.ok) { showApp(d.username, d.is_admin, d.manager_name); }
     else { err.textContent = d.error || 'Ошибка входа'; btn.disabled = false; btn.textContent = 'Войти'; }
   } catch(e) { err.textContent = 'Ошибка соединения'; btn.disabled = false; btn.textContent = 'Войти'; }
 }
@@ -530,58 +546,70 @@ async function doLogout() {
   document.getElementById('login-btn').textContent = 'Войти';
 }
 
-function showApp(username, admin) {
+function showApp(username, admin, managerName) {
   isAdmin = admin;
+  currentManagerName = managerName;
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'flex';
   document.getElementById('header-username').textContent = username;
-  if (admin) document.getElementById('nav-employees').classList.add('show');
-  loadEmployees();
+  document.getElementById('header-role').textContent = admin ? '👑 Администратор' : '👤 ' + (managerName || 'Сотрудник');
+
+  if (admin) {
+    document.getElementById('nav-employees').classList.remove('hidden');
+  }
+
+  // Если сотрудник — показываем фиксированное имя вместо селекта
+  if (managerName) {
+    document.getElementById('manager-select').style.display = 'none';
+    document.getElementById('manager-fixed-wrap').style.display = 'block';
+    document.getElementById('manager-fixed-name').textContent = '👤 ' + managerName;
+  }
+
+  loadEmployeesForSelect();
   loadHistory();
 }
 
-async function loadEmployees() {
+async function loadEmployeesForSelect() {
   var r = await fetch('/api/employees');
   var d = await r.json();
   allEmployees = d.employees || [];
 
-  // Update manager select
   var sel = document.getElementById('manager-select');
   var current = sel.value;
   sel.innerHTML = '<option value="">— Выберите менеджера —</option>';
-  var dashEmployees = allEmployees.filter(function(e) { return e.in_dashboard; });
-  dashEmployees.forEach(function(e) {
+  allEmployees.filter(function(e) { return e.in_dashboard; }).forEach(function(e) {
     var opt = document.createElement('option');
-    opt.value = e.name;
-    opt.textContent = e.name;
+    opt.value = e.name; opt.textContent = e.name;
     sel.appendChild(opt);
   });
   if (current) sel.value = current;
 
-  // Update filter
   var fsel = document.getElementById('filter-manager');
   var fcurrent = fsel.value;
   fsel.innerHTML = '<option value="">Все менеджеры</option>';
-  dashEmployees.forEach(function(e) {
+  allEmployees.filter(function(e) { return e.in_dashboard; }).forEach(function(e) {
     var opt = document.createElement('option');
-    opt.value = e.name;
-    opt.textContent = e.name;
+    opt.value = e.name; opt.textContent = e.name;
     fsel.appendChild(opt);
   });
   if (fcurrent) fsel.value = fcurrent;
+}
 
+async function loadEmployees() {
   if (!isAdmin) return;
-
-  // Render employee list
+  var r = await fetch('/api/employees');
+  var d = await r.json();
+  allEmployees = d.employees || [];
   var el = document.getElementById('emp-list');
   if (allEmployees.length === 0) {
-    el.innerHTML = '<div class="history-empty">Сотрудников пока нет</div>';
-    return;
+    el.innerHTML = '<div class="history-empty">Сотрудников пока нет</div>'; return;
   }
   el.innerHTML = allEmployees.map(function(e) {
+    var loginBadge = e.login ? '<span class="emp-badge has-login">🔑 ' + e.login + '</span>' : '<span class="emp-badge not-dash">Нет доступа</span>';
+    var dashBadge = e.in_dashboard ? '<span class="emp-badge in-dash">✓ В дашборде</span>' : '<span class="emp-badge not-dash">Не в дашборде</span>';
     return '<div class="emp-card">' +
-      '<div class="emp-name">' + e.name + '</div>' +
-      '<span class="emp-badge ' + (e.in_dashboard ? 'in-dash' : 'not-dash') + '">' + (e.in_dashboard ? '✓ В дашборде' : 'Не в дашборде') + '</span>' +
+      '<div class="emp-info"><div class="emp-name">' + e.name + '</div></div>' +
+      '<div class="emp-badges">' + dashBadge + loginBadge + '</div>' +
       '<div class="emp-actions">' +
       '<button class="btn btn-sm btn-outline" onclick="openEditEmployee(' + e.id + ')">Изменить</button>' +
       '<button class="btn btn-sm btn-danger" onclick="deleteEmployee(' + e.id + ')">Удалить</button>' +
@@ -593,7 +621,11 @@ function openAddEmployee() {
   editingEmpId = null;
   document.getElementById('modal-title').textContent = 'Добавить сотрудника';
   document.getElementById('modal-emp-name').value = '';
+  document.getElementById('modal-emp-login').value = '';
+  document.getElementById('modal-emp-password').value = '';
   document.getElementById('modal-in-dashboard').checked = true;
+  document.getElementById('modal-password-label').textContent = 'Пароль';
+  document.getElementById('modal-password-hint').textContent = 'Обязателен если указан логин';
   document.getElementById('modal-overlay').classList.add('show');
   document.getElementById('modal-emp-name').focus();
 }
@@ -604,7 +636,11 @@ function openEditEmployee(id) {
   editingEmpId = id;
   document.getElementById('modal-title').textContent = 'Изменить сотрудника';
   document.getElementById('modal-emp-name').value = emp.name;
+  document.getElementById('modal-emp-login').value = emp.login || '';
+  document.getElementById('modal-emp-password').value = '';
   document.getElementById('modal-in-dashboard').checked = emp.in_dashboard;
+  document.getElementById('modal-password-label').textContent = 'Новый пароль';
+  document.getElementById('modal-password-hint').textContent = 'Оставьте пустым чтобы не менять пароль';
   document.getElementById('modal-overlay').classList.add('show');
 }
 
@@ -614,19 +650,20 @@ function closeModal() {
 
 async function saveEmployee() {
   var name = document.getElementById('modal-emp-name').value.trim();
+  var login = document.getElementById('modal-emp-login').value.trim();
+  var password = document.getElementById('modal-emp-password').value.trim();
   var inDash = document.getElementById('modal-in-dashboard').checked;
-  if (!name) { alert('Введите имя'); return; }
+  if (!name) { alert('Введите имя сотрудника'); return; }
+  if (login && !password && !editingEmpId) { alert('Введите пароль для нового сотрудника'); return; }
   var btn = document.getElementById('modal-save-btn');
   btn.disabled = true;
   try {
     var url = editingEmpId ? '/api/employees/' + editingEmpId : '/api/employees';
     var method = editingEmpId ? 'PUT' : 'POST';
-    var r = await fetch(url, {
-      method: method, headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({name: name, in_dashboard: inDash})
-    });
+    var body = {name: name, in_dashboard: inDash, login: login, password: password};
+    var r = await fetch(url, {method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
     var d = await r.json();
-    if (d.ok) { closeModal(); loadEmployees(); }
+    if (d.ok) { closeModal(); loadEmployees(); loadEmployeesForSelect(); }
     else { alert(d.error || 'Ошибка'); }
   } catch(e) { alert('Ошибка соединения'); }
   btn.disabled = false;
@@ -636,7 +673,7 @@ async function deleteEmployee(id) {
   if (!confirm('Удалить сотрудника?')) return;
   var r = await fetch('/api/employees/' + id, {method: 'DELETE'});
   var d = await r.json();
-  if (d.ok) loadEmployees();
+  if (d.ok) { loadEmployees(); loadEmployeesForSelect(); }
   else alert(d.error || 'Ошибка');
 }
 
@@ -651,7 +688,7 @@ async function doTranscribe() {
   fd.append('file', selectedFile);
   fd.append('prompt', document.getElementById('user-prompt').value);
   fd.append('mode', currentMode);
-  fd.append('manager', document.getElementById('manager-select').value);
+  fd.append('manager', currentManagerName || document.getElementById('manager-select').value);
   try {
     var r = await fetch('/api/transcribe', {method: 'POST', body: fd});
     var d = await r.json();
@@ -677,7 +714,7 @@ function startPolling(jobId) {
       var d = await r.json();
       if (d.status === 'transcribing') {
         dots = (dots + 1) % 4;
-        setProgress(40, 'Расшифровываю аудио' + '...'.slice(0, dots + 1));
+        setProgress(40, 'Расшифровываю аудио' + '...'.slice(0, dots+1));
       } else if (d.status === 'summarizing') {
         setProgress(80, 'Анализирую по скрипту…');
       } else if (d.status === 'done') {
@@ -703,12 +740,6 @@ function setProgress(pct, status) {
   document.getElementById('progress-status').textContent = status;
 }
 
-function scoreClass(s) {
-  if (s >= 7) return 'high';
-  if (s >= 4) return 'mid';
-  return 'low';
-}
-
 function showResult(d) {
   currentSummary = d.summary;
   currentTranscript = d.transcript;
@@ -721,27 +752,26 @@ function showResult(d) {
   var score = d.metrics && d.metrics.scores && d.metrics.scores.overall;
   if (score && score > 0) {
     sb.textContent = '⭐ ' + score + '/10';
-    sb.className = 'score-badge ' + scoreClass(score);
+    sb.className = 'score-badge ' + (score>=7?'high':score>=4?'mid':'low');
     sb.style.display = '';
   } else { sb.style.display = 'none'; }
   document.getElementById('result-card').classList.add('show');
   document.getElementById('transcribe-btn').disabled = false;
   document.querySelectorAll('.rtab')[0].click();
-  var modeHeader = {'sales_club':'АНАЛИЗ — ПРОДАЖА SG.КЛУБ','sales':'АНАЛИЗ — ПРОДАЖА SG','renewal':'АНАЛИЗ — ПРОДЛЕНИЕ','general':'АНАЛИЗ АУДИО'}[d.mode] || 'АНАЛИЗ';
-  var result = "==================================================\n" + modeHeader + "\n";
-  if (d.manager) result += "Менеджер: " + d.manager + "\n";
-  result += "==================================================\n\n" + d.summary + "\n\n\n==================================================\nПОЛНАЯ ТРАНСКРИПЦИЯ\n==================================================\n\n" + d.transcript;
-  var blob = new Blob([result], {type: 'text/plain;charset=utf-8'});
+  var modeHeader = {'sales_club':'АНАЛИЗ — ПРОДАЖА SG.КЛУБ','sales':'АНАЛИЗ — ПРОДАЖА SG','renewal':'АНАЛИЗ — ПРОДЛЕНИЕ','general':'АНАЛИЗ АУДИО'}[d.mode]||'АНАЛИЗ';
+  var result = "==================================================\n"+modeHeader+"\n";
+  if (d.manager) result += "Менеджер: "+d.manager+"\n";
+  result += "==================================================\n\n"+d.summary+"\n\n\n==================================================\nПОЛНАЯ ТРАНСКРИПЦИЯ\n==================================================\n\n"+d.transcript;
+  var blob = new Blob([result], {type:'text/plain;charset=utf-8'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
-  a.href = url;
-  a.download = (d.filename || 'call').replace(/\.[^.]+$/, '') + '_' + (d.mode || 'result') + '.txt';
+  a.href = url; a.download = (d.filename||'call').replace(/\.[^.]+$/,'')+'_'+(d.mode||'result')+'.txt';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
 function copyAll() {
-  var text = "АНАЛИЗ\n\n" + currentSummary + "\n\n\nПОЛНАЯ ТРАНСКРИПЦИЯ\n\n" + currentTranscript;
+  var text = "АНАЛИЗ\n\n"+currentSummary+"\n\n\nПОЛНАЯ ТРАНСКРИПЦИЯ\n\n"+currentTranscript;
   navigator.clipboard.writeText(text).then(function() {
     var btn = document.getElementById('copy-btn');
     btn.textContent = '✅ Скопировано!';
@@ -757,15 +787,13 @@ async function loadHistory() {
     el.innerHTML = '<div class="history-empty">Звонков пока нет</div>'; return;
   }
   el.innerHTML = d.history.map(function(h) {
-    var mc = h.mode || 'general';
-    var ml = modeLabels[mc] || mc;
-    var mb = h.manager ? '<span class="hbadge manager">' + h.manager + '</span>' : '';
-    return '<div class="history-item"><div class="history-item-name">' + h.filename + '</div><div class="history-item-date">' + h.date + '</div><div class="history-item-meta"><span class="hbadge ' + mc + '">' + ml + '</span>' + mb + '</div></div>';
+    var mc = h.mode||'general';
+    var mb = h.manager ? '<span class="hbadge manager">'+h.manager+'</span>' : '';
+    return '<div class="history-item"><div class="history-item-name">'+h.filename+'</div><div class="history-item-date">'+h.date+'</div><div class="history-item-meta"><span class="hbadge '+mc+'">'+modeLabels[mc]+'</span>'+mb+'</div></div>';
   }).join('');
 }
 
 function applyFilters() { loadDashboard(); }
-
 function resetFilters() {
   document.getElementById('filter-manager').value = '';
   document.getElementById('filter-score-min').value = '';
@@ -787,41 +815,39 @@ async function loadDashboard() {
   if (scoreMin) params.append('score_min', scoreMin);
   if (scoreMax) params.append('score_max', scoreMax);
   if (dateFrom) params.append('date_from', dateFrom.split('-').reverse().join('.'));
-  if (dateTo) params.append('date_to', dateTo.split('-').reverse().join('.') + ' 23:59');
-  var url = '/api/dashboard/' + currentDash + (params.toString() ? '?' + params.toString() : '');
+  if (dateTo) params.append('date_to', dateTo.split('-').reverse().join('.')+' 23:59');
+  var url = '/api/dashboard/'+currentDash+(params.toString()?'?'+params.toString():'');
   var r = await fetch(url);
   var d = await r.json();
   if (!d.scored_calls || d.scored_calls === 0) {
     document.getElementById('dash-content').innerHTML = '<div class="empty-dash"><div class="empty-dash-icon">📊</div><div class="empty-dash-title">Нет данных</div><div class="empty-dash-sub">Загрузите звонки в режиме анализа — после обработки здесь появятся метрики</div></div>';
     return;
   }
-  var avgAll = d.managers.length > 0 ? (d.managers.reduce(function(s, m) { return s + m.avg_score; }, 0) / d.managers.length).toFixed(1) : 0;
-  var avgClass = avgAll >= 7 ? 'success' : avgAll >= 4 ? 'warn' : 'err';
+  var avgAll = d.managers.length > 0 ? (d.managers.reduce(function(s,m){return s+m.avg_score;},0)/d.managers.length).toFixed(1) : 0;
+  var avgClass = avgAll>=7?'success':avgAll>=4?'warn':'err';
   var html = '<div class="dash-stats">';
-  html += '<div class="stat-card"><div class="stat-label">Всего звонков</div><div class="stat-value accent">' + d.total_calls + '</div></div>';
-  html += '<div class="stat-card"><div class="stat-label">Оценено</div><div class="stat-value">' + d.scored_calls + '</div></div>';
-  html += '<div class="stat-card"><div class="stat-label">Средняя оценка</div><div class="stat-value ' + avgClass + '">' + avgAll + '</div></div>';
-  html += '<div class="stat-card"><div class="stat-label">Менеджеров</div><div class="stat-value">' + d.managers.length + '</div></div>';
+  html += '<div class="stat-card"><div class="stat-label">Всего звонков</div><div class="stat-value accent">'+d.total_calls+'</div></div>';
+  html += '<div class="stat-card"><div class="stat-label">Оценено</div><div class="stat-value">'+d.scored_calls+'</div></div>';
+  html += '<div class="stat-card"><div class="stat-label">Средняя оценка</div><div class="stat-value '+avgClass+'">'+avgAll+'</div></div>';
+  html += '<div class="stat-card"><div class="stat-label">Менеджеров</div><div class="stat-value">'+d.managers.length+'</div></div>';
   html += '</div>';
   if (d.top_errors && d.top_errors.length > 0) {
     html += '<div class="dash-card"><div class="dash-card-title">🚨 Топ ошибок</div>';
-    d.top_errors.forEach(function(e) {
-      html += '<div class="top-error-item"><span class="error-count">' + e.count + 'x</span><span class="error-text">' + e.error + '</span></div>';
-    });
+    d.top_errors.forEach(function(e) { html += '<div class="top-error-item"><span class="error-count">'+e.count+'x</span><span class="error-text">'+e.error+'</span></div>'; });
     html += '</div>';
   }
   d.managers.forEach(function(m, i) {
-    var sc = m.avg_score >= 7 ? 'high' : m.avg_score >= 4 ? 'mid' : 'low';
-    var medal = ['🥇','🥈','🥉'][i] || '';
-    html += '<div class="manager-card"><div class="manager-header"><div><div class="manager-name">' + medal + ' ' + m.name + '</div><div class="manager-calls">' + m.calls + ' звонк' + (m.calls===1?'':m.calls<5?'а':'ов') + '</div></div>';
-    html += '<div class="big-score ' + sc + '">' + m.avg_score + '<span style="font-size:16px;color:var(--muted)">/10</span></div></div>';
+    var sc = m.avg_score>=7?'high':m.avg_score>=4?'mid':'low';
+    var medal = ['🥇','🥈','🥉'][i]||'';
+    html += '<div class="manager-card"><div class="manager-header"><div><div class="manager-name-title">'+medal+' '+m.name+'</div><div class="manager-calls">'+m.calls+' звонк'+(m.calls===1?'':m.calls<5?'а':'ов')+'</div></div>';
+    html += '<div class="big-score '+sc+'">'+m.avg_score+'<span style="font-size:16px;color:var(--muted)">/10</span></div></div>';
     html += '<div class="manager-body"><div><div class="manager-section-title">⚠️ Главные ошибки</div>';
     if (m.top_errors && m.top_errors.length > 0) {
-      html += '<ul class="error-list">' + m.top_errors.map(function(e) { return '<li>' + e + '</li>'; }).join('') + '</ul>';
+      html += '<ul class="error-list">'+m.top_errors.map(function(e){return '<li>'+e+'</li>';}).join('')+'</ul>';
     } else { html += '<div style="font-size:13px;color:var(--muted)">Ошибок не выявлено</div>'; }
     html += '</div><div><div class="manager-section-title">📋 Задания на отработку</div>';
     if (m.tasks && m.tasks.length > 0) {
-      html += '<ul class="task-list">' + m.tasks.map(function(t) { return '<li>' + t + '</li>'; }).join('') + '</ul>';
+      html += '<ul class="task-list">'+m.tasks.map(function(t){return '<li>'+t+'</li>';}).join('')+'</ul>';
     } else { html += '<div style="font-size:13px;color:var(--muted)">Заданий нет</div>'; }
     html += '</div></div></div>';
   });
@@ -831,8 +857,16 @@ async function loadDashboard() {
 (async function init() {
   var r = await fetch('/api/me');
   var d = await r.json();
-  if (d.user) showApp(d.user, d.is_admin);
+  if (d.user) showApp(d.user, d.is_admin, d.manager_name);
 })();
 </script>
 </body>
 </html>
+```
+
+Commit changes.
+
+**Не забудь** добавить в Railway Variables:
+```
+ADMIN_USER=sg@service.guru
+ADMIN_PASS=твой_пароль
