@@ -517,18 +517,24 @@ def dashboard(dash_type):
         rows = [dict(r) for r in cur.fetchall()]
         cur.close()
         conn.close()
+        logger.info(f"Dashboard: found {len(rows)} rows for account {session['user']}")
+        for r in rows[:3]:
+            logger.info(f"Row: mode={r.get('mode')}, manager={r.get('manager')}, metrics_type={type(r.get('metrics'))}, metrics={str(r.get('metrics'))[:200]}")
     except Exception as e:
         logger.error(f"Dashboard error: {e}")
         return jsonify({"managers": [], "top_errors": [], "total_calls": 0, "scored_calls": 0})
 
     if dash_type == "sales_club":
-        return jsonify(build_dashboard_for_modes(rows, ["sales_club"]))
+        result = build_dashboard_for_modes(rows, ["sales_club"])
     elif dash_type == "sales":
-        return jsonify(build_dashboard_for_modes(rows, ["sales"]))
+        result = build_dashboard_for_modes(rows, ["sales"])
     elif dash_type == "renewal":
-        return jsonify(build_dashboard_for_modes(rows, ["renewal"]))
+        result = build_dashboard_for_modes(rows, ["renewal"])
     else:
-        return jsonify(build_dashboard_for_modes(rows, ["sales_club", "sales", "renewal"]))
+        result = build_dashboard_for_modes(rows, ["sales_club", "sales", "renewal"])
+
+    logger.info(f"Dashboard result: {result}")
+    return jsonify(result)
 
 
 with app.app_context():
