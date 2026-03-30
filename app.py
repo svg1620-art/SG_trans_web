@@ -14,6 +14,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me")
 openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
 USERS = json.loads(os.environ.get("USERS", '{"admin": "admin123"}'))
+ADMIN_USER = os.environ.get("ADMIN_USER", list(USERS.keys())[0])
 SUPPORTED = {".ogg", ".mp3", ".wav", ".m4a", ".mp4", ".webm", ".flac"}
 CHUNK_MB = 20
 MAX_MB = 200
@@ -42,6 +43,15 @@ def init_db():
                 summary TEXT,
                 transcript TEXT,
                 metrics JSONB,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS employees (
+                id SERIAL PRIMARY KEY,
+                account TEXT NOT NULL,
+                name TEXT NOT NULL,
+                in_dashboard BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
@@ -234,6 +244,15 @@ def login_required(f):
     return decorated
 
 
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if session.get("user") != ADMIN_USER:
+            return jsonify({"error": "forbidden"}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+
 def get_duration(path):
     try:
         r = subprocess.run(["ffprobe","-v","error","-show_entries","format=duration","-of","default=noprint_wrappers=1:nokey=1",path], capture_output=True, text=True)
@@ -278,17 +297,12 @@ def transcribe(path):
 def extract_json_from_text(text):
     text_clean = re.sub(r'```json\s*', '', text)
     text_clean = re.sub(r'```\s*', '', text_clean)
-
     idx = text_clean.find('"scores"')
     if idx == -1:
-        logger.error("No 'scores' found in text")
         return {"scores": {"overall": 0}, "errors": [], "manager_tasks": []}
-
     start = text_clean.rfind('{', 0, idx)
     if start == -1:
-        logger.error("No opening brace found")
         return {"scores": {"overall": 0}, "errors": [], "manager_tasks": []}
-
     depth = 0
     end = -1
     for i in range(start, len(text_clean)):
@@ -299,17 +313,14 @@ def extract_json_from_text(text):
             if depth == 0:
                 end = i + 1
                 break
-
     if end == -1:
-        logger.error("No closing brace found")
         return {"scores": {"overall": 0}, "errors": [], "manager_tasks": []}
-
     try:
         result = json.loads(text_clean[start:end])
         logger.info(f"Extracted metrics: {result}")
         return result
     except Exception as e:
-        logger.error(f"JSON parse error: {e}, text: {text_clean[start:end][:300]}")
+        logger.error(f"JSON parse error: {e}")
         return {"scores": {"overall": 0}, "errors": [], "manager_tasks": []}
 
 
@@ -324,7 +335,7 @@ def run_analysis(script, system_prompt, transcript, user_prompt):
         max_tokens=3000,
     )
     text = r.choices[0].message.content.strip()
-    logger.info(f"GPT response tail: {text[-500:]}")
+    logger.info(f"GPT tail: {text[-300:]}")
     metrics = extract_json_from_text(text)
     text_clean = re.sub(r'```json\s*', '', text)
     text_clean = re.sub(r'```\s*', '', text_clean)
@@ -333,10 +344,9 @@ def run_analysis(script, system_prompt, transcript, user_prompt):
 
 
 def analyze_general(transcript, user_prompt=""):
-    if user_prompt.strip():
-        content = f"Контекст: {user_prompt.strip()}\n\nПроанализируй:\n1. КРАТКОЕ САММЕРИ\n2. КЛЮЧЕВЫЕ ТЕМЫ\n3. ГЛАВНЫЕ ВЫВОДЫ\n4. ACTION ITEMS\n5. АНАЛИЗ ПО ЗАПРОСУ\n\nТранскрипция:\n" + transcript
-    else:
-        content = "Проанализируй:\n1. КРАТКОЕ САММЕРИ\n2. КЛЮЧЕВЫЕ ТЕМЫ\n3. ГЛАВНЫЕ ВЫВОДЫ\n4. ACTION ITEMS\n\nТранскрипция:\n" + transcript
+    content = ("Контекст: " + user_prompt.strip() + "\n\n" if user_prompt.strip() else "") + \
+              "Проанализируй:\n1. КРАТКОЕ САММЕРИ\n2. КЛЮЧЕВЫЕ ТЕМЫ\n3. ГЛАВНЫЕ ВЫВОДЫ\n4. ACTION ITEMS" + \
+              ("\n5. АНАЛИЗ ПО ЗАПРОСУ" if user_prompt.strip() else "") + "\n\nТранскрипция:\n" + transcript
     r = openai_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "system", "content": "Ты помощник для анализа транскрипций. Отвечай на русском языке."}, {"role": "user", "content": content}],
@@ -367,7 +377,7 @@ def save_call(account, filename, mode, manager, prompt, summary, transcript, met
         conn.commit()
         cur.close()
         conn.close()
-        logger.info(f"Saved call: {filename}, mode={mode}, manager={manager}, metrics={metrics}")
+        logger.info(f"Saved: {filename}, mode={mode}, manager={manager}, overall={metrics.get('scores',{}).get('overall',0)}")
     except Exception as e:
         logger.error(f"Save call error: {e}")
 
@@ -377,19 +387,17 @@ def run_job(job_id, tmp_path, filename, account, user_prompt, mode, manager_name
         jobs[job_id]["status"] = "transcribing"
         transcript, n = transcribe(tmp_path)
         jobs[job_id]["status"] = "summarizing"
-
+        sys_prompt = "Ты аналитик B2B SaaS. Заполняй все поля максимально конкретно. В самом конце ответа выведи JSON с оценками — без markdown, без обёрток. Отвечай на русском."
         if mode == "sales_club":
-            summary, metrics = run_analysis(SALES_CLUB_SCRIPT, "Ты аналитик отдела продаж B2B SaaS. Заполняй все поля максимально конкретно. В самом конце ответа выведи JSON с оценками — без markdown, без обёрток. Отвечай на русском.", transcript, user_prompt)
+            summary, metrics = run_analysis(SALES_CLUB_SCRIPT, sys_prompt, transcript, user_prompt)
         elif mode == "sales":
-            summary, metrics = run_analysis(SALES_SCRIPT, "Ты аналитик отдела продаж B2B SaaS. Заполняй все поля максимально конкретно. В самом конце ответа выведи JSON с оценками — без markdown, без обёрток. Отвечай на русском.", transcript, user_prompt)
+            summary, metrics = run_analysis(SALES_SCRIPT, sys_prompt, transcript, user_prompt)
         elif mode == "renewal":
-            summary, metrics = run_analysis(RENEWAL_SCRIPT, "Ты аналитик клиентского сервиса B2B SaaS. Заполняй все поля максимально конкретно. В самом конце ответа выведи JSON с оценками — без markdown, без обёрток. Отвечай на русском.", transcript, user_prompt)
+            summary, metrics = run_analysis(RENEWAL_SCRIPT, sys_prompt, transcript, user_prompt)
         else:
             summary, metrics = analyze_general(transcript, user_prompt)
-
         date = datetime.now().strftime("%d.%m.%Y %H:%M")
         save_call(account, filename, mode, manager_name or "Не указан", user_prompt, summary, transcript, metrics, date)
-
         jobs[job_id]["status"] = "done"
         jobs[job_id]["result"] = {
             "summary": summary, "transcript": transcript, "filename": filename,
@@ -405,20 +413,32 @@ def run_job(job_id, tmp_path, filename, account, user_prompt, mode, manager_name
         except: pass
 
 
-def build_dashboard_for_modes(rows, modes):
+def build_dashboard_for_modes(rows, modes, filter_manager=None, filter_score_min=None, filter_score_max=None, filter_date_from=None, filter_date_to=None):
     scored = []
     for r in rows:
         if r.get("mode") not in modes:
             continue
         m = parse_metrics(r.get("metrics"))
-        if m.get("scores", {}).get("overall", 0) > 0:
-            r["metrics"] = m
-            scored.append(r)
+        overall = m.get("scores", {}).get("overall", 0)
+        if overall <= 0:
+            continue
+        if filter_manager and r.get("manager") != filter_manager:
+            continue
+        if filter_score_min is not None and overall < filter_score_min:
+            continue
+        if filter_score_max is not None and overall > filter_score_max:
+            continue
+        if filter_date_from and r.get("date", "") < filter_date_from:
+            continue
+        if filter_date_to and r.get("date", "") > filter_date_to:
+            continue
+        r["metrics"] = m
+        scored.append(r)
 
-    total = len([r for r in rows if r.get("mode") in modes])
+    total_in_mode = len([r for r in rows if r.get("mode") in modes])
 
     if not scored:
-        return {"managers": [], "top_errors": [], "total_calls": total, "scored_calls": 0}
+        return {"managers": [], "top_errors": [], "total_calls": total_in_mode, "scored_calls": 0}
 
     managers = {}
     all_errors = []
@@ -445,10 +465,9 @@ def build_dashboard_for_modes(rows, modes):
             "top_errors": [e for e, _ in Counter(m["errors"]).most_common(3)],
             "tasks": list(dict.fromkeys(m["tasks"]))[:3],
         })
-
     result_managers.sort(key=lambda x: x["avg_score"], reverse=True)
     top_errors = [{"error": e, "count": c} for e, c in Counter(all_errors).most_common(5)]
-    return {"managers": result_managers, "top_errors": top_errors, "total_calls": total, "scored_calls": len(scored)}
+    return {"managers": result_managers, "top_errors": top_errors, "total_calls": total_in_mode, "scored_calls": len(scored)}
 
 
 @app.route("/")
@@ -462,7 +481,7 @@ def login():
     d = request.json
     if USERS.get(d.get("username","")) == d.get("password",""):
         session["user"] = d["username"]
-        return jsonify({"ok": True, "username": d["username"]})
+        return jsonify({"ok": True, "username": d["username"], "is_admin": d["username"] == ADMIN_USER})
     return jsonify({"error": "Неверный логин или пароль"}), 401
 
 
@@ -474,7 +493,89 @@ def logout():
 
 @app.route("/api/me")
 def me():
-    return jsonify({"user": session.get("user")})
+    user = session.get("user")
+    return jsonify({"user": user, "is_admin": user == ADMIN_USER if user else False})
+
+
+# --- EMPLOYEES ---
+@app.route("/api/employees", methods=["GET"])
+@login_required
+def get_employees():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT id, name, in_dashboard FROM employees WHERE account=%s ORDER BY name", (session["user"],))
+        rows = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+        return jsonify({"employees": rows})
+    except Exception as e:
+        logger.error(f"Get employees error: {e}")
+        return jsonify({"employees": []})
+
+
+@app.route("/api/employees", methods=["POST"])
+@login_required
+def add_employee():
+    if session.get("user") != ADMIN_USER:
+        return jsonify({"error": "Только администратор может добавлять сотрудников"}), 403
+    d = request.json
+    name = d.get("name", "").strip()
+    in_dashboard = d.get("in_dashboard", True)
+    if not name:
+        return jsonify({"error": "Имя обязательно"}), 400
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO employees (account, name, in_dashboard) VALUES (%s, %s, %s) RETURNING id", (session["user"], name, in_dashboard))
+        new_id = cur.fetchone()["id"]
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"ok": True, "id": new_id})
+    except Exception as e:
+        logger.error(f"Add employee error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/employees/<int:emp_id>", methods=["PUT"])
+@login_required
+def update_employee(emp_id):
+    if session.get("user") != ADMIN_USER:
+        return jsonify({"error": "Только администратор"}), 403
+    d = request.json
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        if "name" in d and "in_dashboard" in d:
+            cur.execute("UPDATE employees SET name=%s, in_dashboard=%s WHERE id=%s AND account=%s", (d["name"], d["in_dashboard"], emp_id, session["user"]))
+        elif "in_dashboard" in d:
+            cur.execute("UPDATE employees SET in_dashboard=%s WHERE id=%s AND account=%s", (d["in_dashboard"], emp_id, session["user"]))
+        elif "name" in d:
+            cur.execute("UPDATE employees SET name=%s WHERE id=%s AND account=%s", (d["name"], emp_id, session["user"]))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/employees/<int:emp_id>", methods=["DELETE"])
+@login_required
+def delete_employee(emp_id):
+    if session.get("user") != ADMIN_USER:
+        return jsonify({"error": "Только администратор"}), 403
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM employees WHERE id=%s AND account=%s", (emp_id, session["user"]))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/transcribe", methods=["POST"])
@@ -532,31 +633,31 @@ def history():
 @app.route("/api/dashboard/<dash_type>")
 @login_required
 def dashboard(dash_type):
+    filter_manager = request.args.get("manager")
+    filter_score_min = request.args.get("score_min", type=int)
+    filter_score_max = request.args.get("score_max", type=int)
+    filter_date_from = request.args.get("date_from")
+    filter_date_to = request.args.get("date_to")
+
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("SELECT mode, manager, metrics FROM calls WHERE account=%s ORDER BY created_at DESC", (session["user"],))
+        cur.execute("SELECT mode, manager, metrics, date FROM calls WHERE account=%s ORDER BY created_at DESC", (session["user"],))
         rows = [dict(r) for r in cur.fetchall()]
         cur.close()
         conn.close()
-        logger.info(f"Dashboard: found {len(rows)} rows")
-        for r in rows[:3]:
-            logger.info(f"Row: mode={r.get('mode')}, metrics={str(r.get('metrics'))[:200]}")
     except Exception as e:
         logger.error(f"Dashboard error: {e}")
         return jsonify({"managers": [], "top_errors": [], "total_calls": 0, "scored_calls": 0})
 
-    if dash_type == "sales_club":
-        result = build_dashboard_for_modes(rows, ["sales_club"])
-    elif dash_type == "sales":
-        result = build_dashboard_for_modes(rows, ["sales"])
-    elif dash_type == "renewal":
-        result = build_dashboard_for_modes(rows, ["renewal"])
-    else:
-        result = build_dashboard_for_modes(rows, ["sales_club", "sales", "renewal"])
-
-    logger.info(f"Dashboard result: scored={result.get('scored_calls')}, managers={len(result.get('managers', []))}")
-    return jsonify(result)
+    modes_map = {
+        "sales_club": ["sales_club"],
+        "sales": ["sales"],
+        "renewal": ["renewal"],
+        "all": ["sales_club", "sales", "renewal"],
+    }
+    modes = modes_map.get(dash_type, ["sales_club", "sales", "renewal"])
+    return jsonify(build_dashboard_for_modes(rows, modes, filter_manager, filter_score_min, filter_score_max, filter_date_from, filter_date_to))
 
 
 with app.app_context():
