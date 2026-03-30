@@ -13,7 +13,6 @@
   --success: #00b894; --error: #e8553e; --warn: #fdcb6e;
   --sales-club: #e17055; --sales: #0984e3; --renewal: #00cec9; --general: #6c5ce7;
 }
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Onest', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
 #login-screen { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -23,11 +22,16 @@ body { font-family: 'Onest', sans-serif; background: var(--bg); color: var(--tex
 .login-sub { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
 .field { margin-bottom: 16px; }
 .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-.field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; }
-.field input:focus { border-color: var(--accent); }
+.field input, .field select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; }
+.field input:focus, .field select:focus { border-color: var(--accent); }
+.field select option { background: var(--surface2); }
 .btn { display: flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 13px 24px; font-family: 'Onest', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; width: 100%; transition: opacity 0.2s; }
 .btn:hover { opacity: 0.9; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-sm { padding: 7px 14px; font-size: 13px; width: auto; border-radius: 6px; }
+.btn-danger { background: var(--error); }
+.btn-outline { background: none; border: 1px solid var(--border); color: var(--muted); }
+.btn-outline:hover { border-color: var(--accent); color: var(--text); opacity: 1; }
 .error-msg { color: var(--error); font-size: 13px; margin-top: 12px; text-align: center; }
 
 #app-screen { flex: 1; display: none; flex-direction: column; }
@@ -37,10 +41,12 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .header-username { font-size: 14px; color: var(--muted); }
 .logout-btn { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: 'Onest', sans-serif; font-size: 13px; padding: 6px 12px; cursor: pointer; }
 
-.nav-tabs { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; gap: 0; overflow-x: auto; }
+.nav-tabs { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; gap: 0; overflow-x: auto; flex-shrink: 0; }
 .nav-tab { padding: 14px 18px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; transition: color 0.2s, border-color 0.2s; }
 .nav-tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
 .nav-tab:hover { color: var(--text); }
+.nav-tab.admin-only { display: none; }
+.nav-tab.admin-only.show { display: block; }
 
 .page { display: none; flex: 1; overflow-y: auto; }
 .page.active { display: flex; flex-direction: column; }
@@ -76,8 +82,9 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 
 .meta-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .meta-field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-.meta-field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; }
-.meta-field input:focus { border-color: var(--accent); }
+.meta-field input, .meta-field select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; }
+.meta-field input:focus, .meta-field select:focus { border-color: var(--accent); }
+.meta-field select option { background: var(--surface2); }
 
 .prompt-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
 .prompt-label { font-size: 13px; font-weight: 500; color: var(--accent2); margin-bottom: 8px; }
@@ -99,7 +106,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
 .result-title { font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 600; }
 .result-badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.mode-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.05em; }
+.mode-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; }
 .mode-badge.sales_club { background: rgba(225,112,85,0.15); color: var(--sales-club); }
 .mode-badge.sales { background: rgba(9,132,227,0.15); color: var(--sales); }
 .mode-badge.renewal { background: rgba(0,206,201,0.15); color: var(--renewal); }
@@ -134,16 +141,26 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .hbadge.manager { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
 
 /* DASHBOARD */
-.dash-page { padding: 32px; max-width: 1200px; width: 100%; margin: 0 auto; }
-.dash-sub-tabs { display: flex; gap: 8px; margin-bottom: 28px; flex-wrap: wrap; }
+.dash-page { padding: 24px 32px; max-width: 1200px; width: 100%; margin: 0 auto; }
+.dash-sub-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
 .dash-sub-tab { padding: 8px 18px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: 2px solid var(--border); color: var(--muted); transition: all 0.2s; background: none; }
-.dash-sub-tab:hover { color: var(--text); border-color: var(--muted); }
 .dash-sub-tab.active[data-dash="all"] { border-color: var(--accent2); color: var(--accent2); background: rgba(108,92,231,0.1); }
 .dash-sub-tab.active[data-dash="sales_club"] { border-color: var(--sales-club); color: var(--sales-club); background: rgba(225,112,85,0.1); }
 .dash-sub-tab.active[data-dash="sales"] { border-color: var(--sales); color: var(--sales); background: rgba(9,132,227,0.1); }
 .dash-sub-tab.active[data-dash="renewal"] { border-color: var(--renewal); color: var(--renewal); background: rgba(0,206,201,0.1); }
 
-.dash-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+/* FILTERS */
+.filters-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.filter-group { display: flex; flex-direction: column; gap: 4px; }
+.filter-group label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.filter-group input, .filter-group select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 13px; outline: none; min-width: 140px; }
+.filter-group input:focus, .filter-group select:focus { border-color: var(--accent); }
+.filter-group select option { background: var(--surface2); }
+.filter-apply { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-family: 'Onest', sans-serif; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.filter-reset { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 9px 14px; color: var(--muted); font-family: 'Onest', sans-serif; font-size: 13px; cursor: pointer; }
+.filter-reset:hover { border-color: var(--accent2); color: var(--text); }
+
+.dash-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
 @media (max-width: 768px) { .dash-stats { grid-template-columns: repeat(2, 1fr); } }
 .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
 .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -155,7 +172,6 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 
 .dash-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
 .dash-card-title { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 600; margin-bottom: 20px; }
-
 .top-error-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .top-error-item:last-child { border-bottom: none; }
 .error-count { background: rgba(232,85,62,0.15); color: var(--error); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
@@ -184,6 +200,33 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .empty-dash-icon { font-size: 48px; margin-bottom: 16px; }
 .empty-dash-title { font-family: 'Unbounded', sans-serif; font-size: 16px; margin-bottom: 8px; color: var(--text); }
 .empty-dash-sub { font-size: 14px; line-height: 1.6; }
+
+/* EMPLOYEES */
+.employees-page { padding: 32px; max-width: 800px; width: 100%; margin: 0 auto; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.page-title { font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 600; }
+.emp-list { display: flex; flex-direction: column; gap: 10px; }
+.emp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 16px; }
+.emp-name { flex: 1; font-size: 15px; font-weight: 500; }
+.emp-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+.emp-badge.in-dash { background: rgba(0,184,148,0.15); color: var(--success); }
+.emp-badge.not-dash { background: var(--surface2); color: var(--muted); }
+.emp-actions { display: flex; gap: 8px; }
+
+/* MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; display: none; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 100%; max-width: 440px; }
+.modal-title { font-family: 'Unbounded', sans-serif; font-size: 16px; font-weight: 600; margin-bottom: 24px; }
+.modal-field { margin-bottom: 16px; }
+.modal-field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.modal-field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; }
+.modal-field input:focus { border-color: var(--accent); }
+.checkbox-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; }
+.checkbox-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+.checkbox-row label { font-size: 14px; cursor: pointer; }
+.modal-actions { display: flex; gap: 10px; margin-top: 24px; }
+.modal-actions .btn { flex: 1; }
 </style>
 </head>
 <body>
@@ -212,22 +255,20 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
   <div class="nav-tabs">
     <div class="nav-tab active" data-page="transcribe">🎙️ Анализ звонка</div>
     <div class="nav-tab" data-page="dashboard">📊 Дашборд</div>
+    <div class="nav-tab admin-only" data-page="employees" id="nav-employees">👥 Сотрудники</div>
   </div>
 
+  <!-- TRANSCRIBE -->
   <div class="page active" id="page-transcribe">
     <div class="transcribe-layout">
       <div class="upload-section">
-
         <div class="mode-switcher">
           <button class="mode-btn active" data-mode="sales_club">🔥 SG.Клуб</button>
           <button class="mode-btn" data-mode="sales">📋 Продажа SG</button>
           <button class="mode-btn" data-mode="renewal">🔄 Продление</button>
           <button class="mode-btn" data-mode="general">🎙️ Аудио</button>
         </div>
-
-        <div class="mode-desc" id="mode-desc" data-for="sales_club">
-          Анализ звонка по скрипту продаж ServiceGuru.Клуб — помесячная подписка, комьюнити, квалификация
-        </div>
+        <div class="mode-desc" id="mode-desc" data-for="sales_club">Анализ по скрипту продаж ServiceGuru.Клуб — помесячная подписка, комьюнити, квалификация</div>
 
         <div class="upload-zone" id="drop-zone">
           <input type="file" id="file-input" accept=".mp3,.ogg,.wav,.m4a,.mp4,.webm,.flac">
@@ -243,8 +284,10 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 
         <div class="meta-row">
           <div class="meta-field">
-            <label>👤 Имя менеджера</label>
-            <input type="text" id="manager-name" placeholder="Например: Анна Иванова">
+            <label>👤 Менеджер</label>
+            <select id="manager-select">
+              <option value="">— Выберите менеджера —</option>
+            </select>
           </div>
           <div class="meta-field">
             <label>🏢 Клиент (необязательно)</label>
@@ -287,7 +330,6 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
           <div class="rtab-content active" id="rtab-analysis"><div class="result-text" id="result-summary"></div></div>
           <div class="rtab-content" id="rtab-transcript"><div class="result-text" id="result-transcript"></div></div>
         </div>
-
       </div>
 
       <div class="history-section">
@@ -297,20 +339,78 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
     </div>
   </div>
 
+  <!-- DASHBOARD -->
   <div class="page" id="page-dashboard">
     <div class="dash-page">
       <div class="dash-sub-tabs">
-        <button class="dash-sub-tab active" data-dash="all">🌐 Все звонки</button>
+        <button class="dash-sub-tab active" data-dash="all">🌐 Все</button>
         <button class="dash-sub-tab" data-dash="sales_club">🔥 SG.Клуб</button>
         <button class="dash-sub-tab" data-dash="sales">📋 Продажа SG</button>
         <button class="dash-sub-tab" data-dash="renewal">🔄 Продление</button>
       </div>
-      <div id="dash-content">
-        <div class="empty-dash">
-          <div class="empty-dash-icon">📊</div>
-          <div class="empty-dash-title">Загрузка…</div>
+
+      <div class="filters-bar">
+        <div class="filter-group">
+          <label>Менеджер</label>
+          <select id="filter-manager">
+            <option value="">Все менеджеры</option>
+          </select>
         </div>
+        <div class="filter-group">
+          <label>Оценка от</label>
+          <input type="number" id="filter-score-min" min="1" max="10" placeholder="1">
+        </div>
+        <div class="filter-group">
+          <label>Оценка до</label>
+          <input type="number" id="filter-score-max" min="1" max="10" placeholder="10">
+        </div>
+        <div class="filter-group">
+          <label>Дата от</label>
+          <input type="date" id="filter-date-from">
+        </div>
+        <div class="filter-group">
+          <label>Дата до</label>
+          <input type="date" id="filter-date-to">
+        </div>
+        <button class="filter-apply" onclick="applyFilters()">Применить</button>
+        <button class="filter-reset" onclick="resetFilters()">Сбросить</button>
       </div>
+
+      <div id="dash-content">
+        <div class="empty-dash"><div class="empty-dash-icon">📊</div><div class="empty-dash-title">Загрузка…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMPLOYEES -->
+  <div class="page" id="page-employees">
+    <div class="employees-page">
+      <div class="page-header">
+        <div class="page-title">👥 Сотрудники</div>
+        <button class="btn btn-sm" onclick="openAddEmployee()">+ Добавить</button>
+      </div>
+      <div class="emp-list" id="emp-list">
+        <div class="history-empty">Сотрудников пока нет</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Добавить сотрудника</div>
+    <div class="modal-field">
+      <label>Имя и фамилия</label>
+      <input type="text" id="modal-emp-name" placeholder="Например: Анна Иванова">
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="modal-in-dashboard" checked>
+      <label for="modal-in-dashboard">Включить в дашборд и список менеджеров</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Отмена</button>
+      <button class="btn" id="modal-save-btn" onclick="saveEmployee()">Сохранить</button>
     </div>
   </div>
 </div>
@@ -322,20 +422,18 @@ var currentTranscript = '';
 var currentMode = 'sales_club';
 var currentDash = 'all';
 var pollInterval = null;
+var isAdmin = false;
+var editingEmpId = null;
+var allEmployees = [];
 
 var modeDescriptions = {
-  sales_club: 'Анализ звонка по скрипту продаж ServiceGuru.Клуб — помесячная подписка, комьюнити, квалификация',
-  sales: 'Анализ звонка по скрипту продаж ServiceGuru — годовой/полугодовой контракт, презентация платформы',
+  sales_club: 'Анализ по скрипту продаж ServiceGuru.Клуб — помесячная подписка, комьюнити, квалификация',
+  sales: 'Анализ по скрипту продаж ServiceGuru — годовой/полугодовой контракт, презентация платформы',
   renewal: 'Анализ звонка на продление — настроение клиента, риски оттока, работа с возражениями',
   general: 'Расшифровка и общее саммери — темы, выводы, action items'
 };
 
-var modeLabels = {
-  sales_club: '🔥 SG.Клуб',
-  sales: '📋 Продажа SG',
-  renewal: '🔄 Продление',
-  general: '🎙️ Аудио'
-};
+var modeLabels = { sales_club: '🔥 SG.Клуб', sales: '📋 Продажа SG', renewal: '🔄 Продление', general: '🎙️ Аудио' };
 
 // NAV
 document.querySelectorAll('.nav-tab').forEach(function(tab) {
@@ -343,18 +441,10 @@ document.querySelectorAll('.nav-tab').forEach(function(tab) {
     document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
     document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
     this.classList.add('active');
-    document.getElementById('page-' + this.dataset.page).classList.add('active');
-    if (this.dataset.page === 'dashboard') loadDashboard(currentDash);
-  });
-});
-
-// DASH SUB TABS
-document.querySelectorAll('.dash-sub-tab').forEach(function(tab) {
-  tab.addEventListener('click', function() {
-    document.querySelectorAll('.dash-sub-tab').forEach(function(t) { t.classList.remove('active'); });
-    this.classList.add('active');
-    currentDash = this.dataset.dash;
-    loadDashboard(currentDash);
+    var page = this.dataset.page;
+    document.getElementById('page-' + page).classList.add('active');
+    if (page === 'dashboard') loadDashboard();
+    if (page === 'employees') loadEmployees();
   });
 });
 
@@ -370,6 +460,16 @@ document.querySelectorAll('.mode-btn').forEach(function(btn) {
   });
 });
 
+// DASH SUB TABS
+document.querySelectorAll('.dash-sub-tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.dash-sub-tab').forEach(function(t) { t.classList.remove('active'); });
+    this.classList.add('active');
+    currentDash = this.dataset.dash;
+    loadDashboard();
+  });
+});
+
 // RESULT TABS
 document.querySelectorAll('.rtab').forEach(function(tab) {
   tab.addEventListener('click', function() {
@@ -380,7 +480,6 @@ document.querySelectorAll('.rtab').forEach(function(tab) {
   });
 });
 
-// CHIPS
 document.querySelectorAll('.chip').forEach(function(chip) {
   chip.addEventListener('click', function() { document.getElementById('user-prompt').value = this.dataset.prompt; });
 });
@@ -418,7 +517,7 @@ async function doLogin() {
       body: JSON.stringify({username: document.getElementById('username').value, password: document.getElementById('password').value})
     });
     var d = await r.json();
-    if (d.ok) { showApp(d.username); }
+    if (d.ok) { showApp(d.username, d.is_admin); }
     else { err.textContent = d.error || 'Ошибка входа'; btn.disabled = false; btn.textContent = 'Войти'; }
   } catch(e) { err.textContent = 'Ошибка соединения'; btn.disabled = false; btn.textContent = 'Войти'; }
 }
@@ -431,11 +530,114 @@ async function doLogout() {
   document.getElementById('login-btn').textContent = 'Войти';
 }
 
-function showApp(username) {
+function showApp(username, admin) {
+  isAdmin = admin;
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'flex';
   document.getElementById('header-username').textContent = username;
+  if (admin) document.getElementById('nav-employees').classList.add('show');
+  loadEmployees();
   loadHistory();
+}
+
+async function loadEmployees() {
+  var r = await fetch('/api/employees');
+  var d = await r.json();
+  allEmployees = d.employees || [];
+
+  // Update manager select
+  var sel = document.getElementById('manager-select');
+  var current = sel.value;
+  sel.innerHTML = '<option value="">— Выберите менеджера —</option>';
+  var dashEmployees = allEmployees.filter(function(e) { return e.in_dashboard; });
+  dashEmployees.forEach(function(e) {
+    var opt = document.createElement('option');
+    opt.value = e.name;
+    opt.textContent = e.name;
+    sel.appendChild(opt);
+  });
+  if (current) sel.value = current;
+
+  // Update filter
+  var fsel = document.getElementById('filter-manager');
+  var fcurrent = fsel.value;
+  fsel.innerHTML = '<option value="">Все менеджеры</option>';
+  dashEmployees.forEach(function(e) {
+    var opt = document.createElement('option');
+    opt.value = e.name;
+    opt.textContent = e.name;
+    fsel.appendChild(opt);
+  });
+  if (fcurrent) fsel.value = fcurrent;
+
+  if (!isAdmin) return;
+
+  // Render employee list
+  var el = document.getElementById('emp-list');
+  if (allEmployees.length === 0) {
+    el.innerHTML = '<div class="history-empty">Сотрудников пока нет</div>';
+    return;
+  }
+  el.innerHTML = allEmployees.map(function(e) {
+    return '<div class="emp-card">' +
+      '<div class="emp-name">' + e.name + '</div>' +
+      '<span class="emp-badge ' + (e.in_dashboard ? 'in-dash' : 'not-dash') + '">' + (e.in_dashboard ? '✓ В дашборде' : 'Не в дашборде') + '</span>' +
+      '<div class="emp-actions">' +
+      '<button class="btn btn-sm btn-outline" onclick="openEditEmployee(' + e.id + ')">Изменить</button>' +
+      '<button class="btn btn-sm btn-danger" onclick="deleteEmployee(' + e.id + ')">Удалить</button>' +
+      '</div></div>';
+  }).join('');
+}
+
+function openAddEmployee() {
+  editingEmpId = null;
+  document.getElementById('modal-title').textContent = 'Добавить сотрудника';
+  document.getElementById('modal-emp-name').value = '';
+  document.getElementById('modal-in-dashboard').checked = true;
+  document.getElementById('modal-overlay').classList.add('show');
+  document.getElementById('modal-emp-name').focus();
+}
+
+function openEditEmployee(id) {
+  var emp = allEmployees.find(function(e) { return e.id === id; });
+  if (!emp) return;
+  editingEmpId = id;
+  document.getElementById('modal-title').textContent = 'Изменить сотрудника';
+  document.getElementById('modal-emp-name').value = emp.name;
+  document.getElementById('modal-in-dashboard').checked = emp.in_dashboard;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+
+async function saveEmployee() {
+  var name = document.getElementById('modal-emp-name').value.trim();
+  var inDash = document.getElementById('modal-in-dashboard').checked;
+  if (!name) { alert('Введите имя'); return; }
+  var btn = document.getElementById('modal-save-btn');
+  btn.disabled = true;
+  try {
+    var url = editingEmpId ? '/api/employees/' + editingEmpId : '/api/employees';
+    var method = editingEmpId ? 'PUT' : 'POST';
+    var r = await fetch(url, {
+      method: method, headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name: name, in_dashboard: inDash})
+    });
+    var d = await r.json();
+    if (d.ok) { closeModal(); loadEmployees(); }
+    else { alert(d.error || 'Ошибка'); }
+  } catch(e) { alert('Ошибка соединения'); }
+  btn.disabled = false;
+}
+
+async function deleteEmployee(id) {
+  if (!confirm('Удалить сотрудника?')) return;
+  var r = await fetch('/api/employees/' + id, {method: 'DELETE'});
+  var d = await r.json();
+  if (d.ok) loadEmployees();
+  else alert(d.error || 'Ошибка');
 }
 
 async function doTranscribe() {
@@ -449,7 +651,7 @@ async function doTranscribe() {
   fd.append('file', selectedFile);
   fd.append('prompt', document.getElementById('user-prompt').value);
   fd.append('mode', currentMode);
-  fd.append('manager', document.getElementById('manager-name').value);
+  fd.append('manager', document.getElementById('manager-select').value);
   try {
     var r = await fetch('/api/transcribe', {method: 'POST', body: fd});
     var d = await r.json();
@@ -512,11 +714,9 @@ function showResult(d) {
   currentTranscript = d.transcript;
   document.getElementById('result-summary').textContent = d.summary;
   document.getElementById('result-transcript').textContent = d.transcript;
-
   var badge = document.getElementById('result-mode-badge');
   badge.textContent = modeLabels[d.mode] || d.mode;
   badge.className = 'mode-badge ' + (d.mode || 'general');
-
   var sb = document.getElementById('result-score-badge');
   var score = d.metrics && d.metrics.scores && d.metrics.scores.overall;
   if (score && score > 0) {
@@ -524,12 +724,10 @@ function showResult(d) {
     sb.className = 'score-badge ' + scoreClass(score);
     sb.style.display = '';
   } else { sb.style.display = 'none'; }
-
   document.getElementById('result-card').classList.add('show');
   document.getElementById('transcribe-btn').disabled = false;
   document.querySelectorAll('.rtab')[0].click();
-
-  var modeHeader = {'sales_club': 'АНАЛИЗ — ПРОДАЖА SG.КЛУБ', 'sales': 'АНАЛИЗ — ПРОДАЖА SG', 'renewal': 'АНАЛИЗ — ПРОДЛЕНИЕ', 'general': 'АНАЛИЗ АУДИО'}[d.mode] || 'АНАЛИЗ';
+  var modeHeader = {'sales_club':'АНАЛИЗ — ПРОДАЖА SG.КЛУБ','sales':'АНАЛИЗ — ПРОДАЖА SG','renewal':'АНАЛИЗ — ПРОДЛЕНИЕ','general':'АНАЛИЗ АУДИО'}[d.mode] || 'АНАЛИЗ';
   var result = "==================================================\n" + modeHeader + "\n";
   if (d.manager) result += "Менеджер: " + d.manager + "\n";
   result += "==================================================\n\n" + d.summary + "\n\n\n==================================================\nПОЛНАЯ ТРАНСКРИПЦИЯ\n==================================================\n\n" + d.transcript;
@@ -566,39 +764,45 @@ async function loadHistory() {
   }).join('');
 }
 
-async function loadDashboard(dashType) {
+function applyFilters() { loadDashboard(); }
+
+function resetFilters() {
+  document.getElementById('filter-manager').value = '';
+  document.getElementById('filter-score-min').value = '';
+  document.getElementById('filter-score-max').value = '';
+  document.getElementById('filter-date-from').value = '';
+  document.getElementById('filter-date-to').value = '';
+  loadDashboard();
+}
+
+async function loadDashboard() {
   document.getElementById('dash-content').innerHTML = '<div class="empty-dash"><div class="empty-dash-icon">⏳</div><div class="empty-dash-title">Загружаю данные…</div></div>';
-  var r = await fetch('/api/dashboard/' + dashType);
+  var params = new URLSearchParams();
+  var manager = document.getElementById('filter-manager').value;
+  var scoreMin = document.getElementById('filter-score-min').value;
+  var scoreMax = document.getElementById('filter-score-max').value;
+  var dateFrom = document.getElementById('filter-date-from').value;
+  var dateTo = document.getElementById('filter-date-to').value;
+  if (manager) params.append('manager', manager);
+  if (scoreMin) params.append('score_min', scoreMin);
+  if (scoreMax) params.append('score_max', scoreMax);
+  if (dateFrom) params.append('date_from', dateFrom.split('-').reverse().join('.'));
+  if (dateTo) params.append('date_to', dateTo.split('-').reverse().join('.') + ' 23:59');
+  var url = '/api/dashboard/' + currentDash + (params.toString() ? '?' + params.toString() : '');
+  var r = await fetch(url);
   var d = await r.json();
-
-  var dashTitles = {
-    all: 'Все звонки',
-    sales_club: '🔥 Продажа SG.Клуб',
-    sales: '📋 Продажа SG',
-    renewal: '🔄 Продление'
-  };
-
   if (!d.scored_calls || d.scored_calls === 0) {
-    var modeHint = {
-      all: 'Загрузите звонки в режиме анализа — после обработки здесь появятся метрики',
-      sales_club: 'Загрузите звонки в режиме «SG.Клуб»',
-      sales: 'Загрузите звонки в режиме «Продажа SG»',
-      renewal: 'Загрузите звонки в режиме «Продление»'
-    }[dashType] || '';
-    document.getElementById('dash-content').innerHTML = '<div class="empty-dash"><div class="empty-dash-icon">📊</div><div class="empty-dash-title">Нет данных</div><div class="empty-dash-sub">' + modeHint + '</div></div>';
+    document.getElementById('dash-content').innerHTML = '<div class="empty-dash"><div class="empty-dash-icon">📊</div><div class="empty-dash-title">Нет данных</div><div class="empty-dash-sub">Загрузите звонки в режиме анализа — после обработки здесь появятся метрики</div></div>';
     return;
   }
-
   var avgAll = d.managers.length > 0 ? (d.managers.reduce(function(s, m) { return s + m.avg_score; }, 0) / d.managers.length).toFixed(1) : 0;
   var avgClass = avgAll >= 7 ? 'success' : avgAll >= 4 ? 'warn' : 'err';
-
   var html = '<div class="dash-stats">';
   html += '<div class="stat-card"><div class="stat-label">Всего звонков</div><div class="stat-value accent">' + d.total_calls + '</div></div>';
   html += '<div class="stat-card"><div class="stat-label">Оценено</div><div class="stat-value">' + d.scored_calls + '</div></div>';
   html += '<div class="stat-card"><div class="stat-label">Средняя оценка</div><div class="stat-value ' + avgClass + '">' + avgAll + '</div></div>';
   html += '<div class="stat-card"><div class="stat-label">Менеджеров</div><div class="stat-value">' + d.managers.length + '</div></div>';
   html += '</div>';
-
   if (d.top_errors && d.top_errors.length > 0) {
     html += '<div class="dash-card"><div class="dash-card-title">🚨 Топ ошибок</div>';
     d.top_errors.forEach(function(e) {
@@ -606,33 +810,28 @@ async function loadDashboard(dashType) {
     });
     html += '</div>';
   }
-
   d.managers.forEach(function(m, i) {
-    var sc = scoreClass(m.avg_score);
+    var sc = m.avg_score >= 7 ? 'high' : m.avg_score >= 4 ? 'mid' : 'low';
     var medal = ['🥇','🥈','🥉'][i] || '';
-    html += '<div class="manager-card">';
-    html += '<div class="manager-header"><div><div class="manager-name">' + medal + ' ' + m.name + '</div><div class="manager-calls">' + m.calls + ' звонк' + (m.calls === 1 ? '' : m.calls < 5 ? 'а' : 'ов') + '</div></div>';
+    html += '<div class="manager-card"><div class="manager-header"><div><div class="manager-name">' + medal + ' ' + m.name + '</div><div class="manager-calls">' + m.calls + ' звонк' + (m.calls===1?'':m.calls<5?'а':'ов') + '</div></div>';
     html += '<div class="big-score ' + sc + '">' + m.avg_score + '<span style="font-size:16px;color:var(--muted)">/10</span></div></div>';
-    html += '<div class="manager-body">';
-    html += '<div><div class="manager-section-title">⚠️ Главные ошибки</div>';
+    html += '<div class="manager-body"><div><div class="manager-section-title">⚠️ Главные ошибки</div>';
     if (m.top_errors && m.top_errors.length > 0) {
       html += '<ul class="error-list">' + m.top_errors.map(function(e) { return '<li>' + e + '</li>'; }).join('') + '</ul>';
     } else { html += '<div style="font-size:13px;color:var(--muted)">Ошибок не выявлено</div>'; }
-    html += '</div>';
-    html += '<div><div class="manager-section-title">📋 Задания на отработку</div>';
+    html += '</div><div><div class="manager-section-title">📋 Задания на отработку</div>';
     if (m.tasks && m.tasks.length > 0) {
       html += '<ul class="task-list">' + m.tasks.map(function(t) { return '<li>' + t + '</li>'; }).join('') + '</ul>';
     } else { html += '<div style="font-size:13px;color:var(--muted)">Заданий нет</div>'; }
     html += '</div></div></div>';
   });
-
   document.getElementById('dash-content').innerHTML = html;
 }
 
 (async function init() {
   var r = await fetch('/api/me');
   var d = await r.json();
-  if (d.user) showApp(d.user);
+  if (d.user) showApp(d.user, d.is_admin);
 })();
 </script>
 </body>
