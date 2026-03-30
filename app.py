@@ -1,928 +1,766 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SG_Транскрибация</title>
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700&family=Onest:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --bg: #0a0a0f; --surface: #13131a; --surface2: #1c1c26; --border: #2a2a3a;
-  --accent: #6c5ce7; --accent2: #a29bfe; --text: #e8e8f0; --muted: #7a7a9a;
-  --success: #00b894; --error: #e8553e; --warn: #fdcb6e;
-  --sales-club: #e17055; --sales: #0984e3; --renewal: #00cec9; --general: #6c5ce7;
-}
-body { font-family: 'Onest', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+import os, math, subprocess, tempfile, json, hashlib, logging, threading, re
+import urllib.request
+import urllib.parse
+from datetime import datetime
+from pathlib import Path
+from functools import wraps
+from flask import Flask, request, jsonify, session
+from openai import OpenAI
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
-#login-screen { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
-.login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 48px 40px; width: 100%; max-width: 400px; }
-.login-logo { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.15em; color: var(--accent2); text-transform: uppercase; margin-bottom: 32px; }
-.login-title { font-family: 'Unbounded', sans-serif; font-size: 22px; font-weight: 600; margin-bottom: 8px; }
-.login-sub { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
-.field { margin-bottom: 16px; }
-.field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-.field input, .field select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; }
-.field input:focus, .field select:focus { border-color: var(--accent); }
-.field select option { background: var(--surface2); }
-.btn { display: flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 13px 24px; font-family: 'Onest', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; width: 100%; transition: opacity 0.2s; }
-.btn:hover { opacity: 0.9; }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-sm { padding: 7px 14px; font-size: 13px; width: auto; border-radius: 6px; }
-.btn-danger { background: var(--error); }
-.btn-outline { background: none; border: 1px solid var(--border); color: var(--muted); }
-.btn-outline:hover { border-color: var(--accent); color: var(--text); opacity: 1; }
-.error-msg { color: var(--error); font-size: 13px; margin-top: 12px; text-align: center; }
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-#app-screen { flex: 1; display: none; flex-direction: column; }
-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; height: 60px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-.header-logo { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: var(--accent2); text-transform: uppercase; }
-.header-right { display: flex; align-items: center; gap: 16px; }
-.header-username { font-size: 14px; color: var(--muted); }
-.header-role { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: rgba(108,92,231,0.15); color: var(--accent2); }
-.logout-btn { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: 'Onest', sans-serif; font-size: 13px; padding: 6px 12px; cursor: pointer; }
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "change-me")
+openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
+ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
+ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin123")
+SUPPORTED = {".ogg", ".mp3", ".wav", ".m4a", ".mp4", ".webm", ".flac"}
+CHUNK_MB = 20
+MAX_MB = 200
+CHUNK_SEC = (CHUNK_MB * 1024 * 1024 * 8) / (32 * 1000)
+jobs = {}
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
-.nav-tabs { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; gap: 0; overflow-x: auto; flex-shrink: 0; }
-.nav-tab { padding: 14px 18px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; transition: color 0.2s, border-color 0.2s; }
-.nav-tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
-.nav-tab:hover { color: var(--text); }
-.nav-tab.hidden { display: none; }
 
-.page { display: none; flex: 1; overflow-y: auto; }
-.page.active { display: flex; flex-direction: column; }
+def get_db():
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
-.transcribe-layout { display: grid; grid-template-columns: 1fr 300px; gap: 24px; max-width: 1200px; width: 100%; margin: 0 auto; padding: 32px; }
-@media (max-width: 768px) { .transcribe-layout { grid-template-columns: 1fr; padding: 16px; } }
-.upload-section { display: flex; flex-direction: column; gap: 20px; }
 
-.mode-switcher { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 6px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-.mode-btn { padding: 9px 6px; border: none; border-radius: 8px; font-family: 'Onest', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; background: none; color: var(--muted); transition: all 0.2s; text-align: center; }
-.mode-btn.active[data-mode="sales_club"] { background: rgba(225,112,85,0.15); color: var(--sales-club); border: 1px solid rgba(225,112,85,0.3); }
-.mode-btn.active[data-mode="sales"] { background: rgba(9,132,227,0.15); color: var(--sales); border: 1px solid rgba(9,132,227,0.3); }
-.mode-btn.active[data-mode="renewal"] { background: rgba(0,206,201,0.15); color: var(--renewal); border: 1px solid rgba(0,206,201,0.3); }
-.mode-btn.active[data-mode="general"] { background: rgba(108,92,231,0.15); color: var(--accent2); border: 1px solid rgba(108,92,231,0.3); }
-.mode-desc { font-size: 12px; color: var(--muted); padding: 8px 12px; background: var(--surface2); border-radius: 8px; border-left: 3px solid var(--accent); }
-.mode-desc[data-for="sales_club"] { border-color: var(--sales-club); }
-.mode-desc[data-for="sales"] { border-color: var(--sales); }
-.mode-desc[data-for="renewal"] { border-color: var(--renewal); }
-.mode-desc[data-for="general"] { border-color: var(--general); }
+def init_db():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS calls (
+                id SERIAL PRIMARY KEY,
+                account TEXT NOT NULL,
+                filename TEXT,
+                date TEXT,
+                mode TEXT,
+                manager TEXT,
+                prompt TEXT,
+                summary TEXT,
+                transcript TEXT,
+                metrics JSONB,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS employees (
+                id SERIAL PRIMARY KEY,
+                account TEXT NOT NULL,
+                name TEXT NOT NULL,
+                in_dashboard BOOLEAN DEFAULT TRUE,
+                login TEXT,
+                password_hash TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        try:
+            cur.execute("ALTER TABLE employees ADD COLUMN IF NOT EXISTS login TEXT")
+            cur.execute("ALTER TABLE employees ADD COLUMN IF NOT EXISTS password_hash TEXT")
+        except:
+            pass
+        conn.commit()
+        cur.close()
+        conn.close()
+        logger.info("DB initialized")
+    except Exception as e:
+        logger.error(f"DB init error: {e}")
 
-/* SOURCE SWITCHER */
-.source-switcher { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; }
-.source-btn { flex: 1; padding: 9px; border: none; border-radius: 7px; font-family: 'Onest', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; background: none; color: var(--muted); transition: all 0.2s; text-align: center; }
-.source-btn.active { background: var(--surface2); color: var(--text); }
 
-.upload-zone { background: var(--surface); border: 2px dashed var(--border); border-radius: 16px; padding: 40px 32px; text-align: center; cursor: pointer; position: relative; transition: border-color 0.2s; }
-.upload-zone:hover { border-color: var(--accent); }
-.upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
-.upload-icon { font-size: 36px; margin-bottom: 12px; }
-.upload-title { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 600; margin-bottom: 6px; }
-.upload-sub { font-size: 13px; color: var(--muted); }
-.upload-formats { font-size: 12px; color: var(--accent2); margin-top: 6px; }
-.selected-file { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: none; align-items: center; gap: 12px; margin-top: 12px; }
-.selected-file.show { display: flex; }
-.file-name { font-size: 14px; font-weight: 500; }
-.file-size { font-size: 12px; color: var(--muted); }
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
-/* URL INPUT */
-.url-input-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
-.url-label { font-size: 13px; font-weight: 500; color: var(--accent2); margin-bottom: 10px; }
-.url-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; }
-.url-input:focus { border-color: var(--accent); }
-.url-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
 
-.meta-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.meta-field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-.meta-field input, .meta-field select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; }
-.meta-field input:focus, .meta-field select:focus { border-color: var(--accent); }
-.meta-field select option { background: var(--surface2); }
-.manager-fixed { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--accent2); font-weight: 500; }
+def check_employee_login(login, password):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM employees WHERE login=%s AND password_hash=%s", (login, hash_password(password)))
+        emp = cur.fetchone()
+        cur.close()
+        conn.close()
+        return dict(emp) if emp else None
+    except Exception as e:
+        logger.error(f"Employee login check error: {e}")
+        return None
 
-.prompt-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
-.prompt-label { font-size: 13px; font-weight: 500; color: var(--accent2); margin-bottom: 8px; }
-.prompt-label span { font-size: 12px; color: var(--muted); font-weight: 400; }
-.prompt-box textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; resize: vertical; min-height: 70px; line-height: 1.5; transition: border-color 0.2s; }
-.prompt-box textarea:focus { border-color: var(--accent); }
-.prompt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 12px; color: var(--muted); cursor: pointer; transition: all 0.2s; }
-.chip:hover { border-color: var(--accent2); color: var(--accent2); }
 
-.progress-wrap { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
-.progress-wrap.show { display: block; }
-.progress-bar-bg { background: var(--surface2); border-radius: 99px; height: 6px; overflow: hidden; margin: 12px 0 10px; }
-.progress-bar { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.5s ease; width: 0%; }
-.progress-status { font-size: 14px; color: var(--accent2); }
+SALES_CLUB_SCRIPT = """Ты аналитик отдела продаж B2B SaaS компании ServiceGuru (платформа обучения персонала для HoReCa).
 
-.result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; display: none; }
-.result-card.show { display: block; }
-.result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
-.result-title { font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 600; }
-.result-badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.mode-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; }
-.mode-badge.sales_club { background: rgba(225,112,85,0.15); color: var(--sales-club); }
-.mode-badge.sales { background: rgba(9,132,227,0.15); color: var(--sales); }
-.mode-badge.renewal { background: rgba(0,206,201,0.15); color: var(--renewal); }
-.mode-badge.general { background: rgba(108,92,231,0.15); color: var(--accent2); }
-.score-badge { font-size: 13px; font-weight: 700; padding: 3px 12px; border-radius: 20px; }
-.score-badge.high { background: rgba(0,184,148,0.15); color: var(--success); }
-.score-badge.mid { background: rgba(253,203,110,0.15); color: var(--warn); }
-.score-badge.low { background: rgba(232,85,62,0.15); color: var(--error); }
-.copy-btn { background: var(--success); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-family: 'Onest', sans-serif; font-size: 13px; cursor: pointer; }
+Проанализируй транскрипт звонка менеджера с потенциальным клиентом по тарифу ServiceGuru.Клуб (помесячная подписка от 6 990 руб, без годового контракта).
 
-.result-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
-.rtab { padding: 8px 16px; font-size: 13px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
-.rtab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
-.rtab-content { display: none; }
-.rtab-content.active { display: block; }
-.result-text { font-size: 14px; line-height: 1.7; white-space: pre-wrap; max-height: 500px; overflow-y: auto; }
-.result-text::-webkit-scrollbar { width: 4px; }
-.result-text::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+ЛИД
+- Название компании:
+- Тип (МКК/КК/СКК):
+- Источник лида (если упомянут):
+- Размер команды (если упомянут):
 
-.history-section { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; height: fit-content; }
-.section-title { font-family: 'Unbounded', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-bottom: 16px; }
-.history-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 24px 0; }
-.history-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
-.history-item-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.history-item-date { font-size: 11px; color: var(--muted); margin-top: 3px; }
-.history-item-meta { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
-.hbadge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
-.hbadge.sales_club { background: rgba(225,112,85,0.15); color: var(--sales-club); }
-.hbadge.sales { background: rgba(9,132,227,0.15); color: var(--sales); }
-.hbadge.renewal { background: rgba(0,206,201,0.15); color: var(--renewal); }
-.hbadge.general { background: rgba(108,92,231,0.15); color: var(--accent2); }
-.hbadge.manager { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+КВАЛИФИКАЦИЯ
+- Есть ли реальная боль с обучением или текучкой: да/нет/не выяснили
+- Есть ли бюджет или полномочия принять решение: да/нет/не выяснили
+- Есть ли срочность: да/нет/не выяснили
 
-/* DASHBOARD */
-.dash-page { padding: 24px 32px; max-width: 1200px; width: 100%; margin: 0 auto; }
-.dash-sub-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-.dash-sub-tab { padding: 8px 18px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: 2px solid var(--border); color: var(--muted); transition: all 0.2s; background: none; }
-.dash-sub-tab.active[data-dash="all"] { border-color: var(--accent2); color: var(--accent2); background: rgba(108,92,231,0.1); }
-.dash-sub-tab.active[data-dash="sales_club"] { border-color: var(--sales-club); color: var(--sales-club); background: rgba(225,112,85,0.1); }
-.dash-sub-tab.active[data-dash="sales"] { border-color: var(--sales); color: var(--sales); background: rgba(9,132,227,0.1); }
-.dash-sub-tab.active[data-dash="renewal"] { border-color: var(--renewal); color: var(--renewal); background: rgba(0,206,201,0.1); }
+ПОНИМАНИЕ ПРОДУКТА МЕНЕДЖЕРОМ
+- Объяснил ли что такое Клуб чётко: да/частично/нет
+- Назвал ли ключевое отличие от годового контракта: да/нет
+- Упомянул ли комьюнити как ценность: да/нет
 
-.filters-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
-.filter-group { display: flex; flex-direction: column; gap: 4px; }
-.filter-group label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.filter-group input, .filter-group select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 13px; outline: none; min-width: 130px; }
-.filter-group select option { background: var(--surface2); }
-.filter-apply { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-family: 'Onest', sans-serif; font-size: 13px; cursor: pointer; }
-.filter-reset { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 9px 14px; color: var(--muted); font-family: 'Onest', sans-serif; font-size: 13px; cursor: pointer; }
+РЕАКЦИЯ КЛИЕНТА
+- Общий интерес (высокий/средний/низкий/нулевой):
+- Что зацепило клиента (если что-то):
+- Что отпугнуло или вызвало скепсис:
 
-.dash-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
-@media (max-width: 768px) { .dash-stats { grid-template-columns: repeat(2, 1fr); } }
-.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
-.stat-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
-.stat-value { font-family: 'Unbounded', sans-serif; font-size: 28px; font-weight: 700; }
-.stat-value.accent { color: var(--accent2); }
-.stat-value.success { color: var(--success); }
-.stat-value.warn { color: var(--warn); }
-.stat-value.err { color: var(--error); }
+ВОЗРАЖЕНИЯ
+- Перечисли все возражения дословно или близко к тексту:
+- Как менеджер закрыл каждое (закрыл/частично/не закрыл):
 
-.dash-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
-.dash-card-title { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 600; margin-bottom: 20px; }
-.top-error-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
-.top-error-item:last-child { border-bottom: none; }
-.error-count { background: rgba(232,85,62,0.15); color: var(--error); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
-.error-text { font-size: 13px; }
+РЕЗУЛЬТАТ
+- Итог звонка (встреча/КП/отказ/перенос/думает):
+- Конкретная договорённость:
+- Дедлайн следующего контакта:
 
-.manager-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 16px; }
-.manager-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
-.manager-name-title { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 600; }
-.manager-calls { font-size: 13px; color: var(--muted); margin-top: 4px; }
-.big-score { font-family: 'Unbounded', sans-serif; font-size: 36px; font-weight: 700; }
-.big-score.high { color: var(--success); }
-.big-score.mid { color: var(--warn); }
-.big-score.low { color: var(--error); }
-.manager-body { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-@media (max-width: 600px) { .manager-body { grid-template-columns: 1fr; } }
-.manager-section-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
-.error-list { list-style: none; }
-.error-list li { font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; gap: 8px; }
-.error-list li:last-child { border-bottom: none; }
-.error-list li::before { content: '⚠️'; font-size: 12px; flex-shrink: 0; }
-.task-list { list-style: none; }
-.task-list li { font-size: 13px; padding: 8px 10px; background: var(--surface2); border-radius: 8px; margin-bottom: 6px; display: flex; gap: 8px; border-left: 3px solid var(--accent); }
-.task-list li::before { content: '→'; color: var(--accent2); flex-shrink: 0; font-weight: 700; }
+КАЧЕСТВО РАБОТЫ МЕНЕДЖЕРА
+- Что сделал хорошо:
+- Что упустил:
+- На каком этапе потерял инициативу (если потерял):
 
-.empty-dash { text-align: center; padding: 80px 20px; color: var(--muted); }
-.empty-dash-icon { font-size: 48px; margin-bottom: 16px; }
-.empty-dash-title { font-family: 'Unbounded', sans-serif; font-size: 16px; margin-bottom: 8px; color: var(--text); }
-.empty-dash-sub { font-size: 14px; line-height: 1.6; }
+ОЦЕНКА ЗВОНКА (1-10)
+- Общая оценка:
+- Квалификация клиента:
+- Презентация продукта:
+- Работа с возражениями:
+- Закрытие на следующий шаг:
 
-/* EMPLOYEES */
-.employees-page { padding: 32px; max-width: 800px; width: 100%; margin: 0 auto; }
-.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-.page-title { font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 600; }
-.emp-list { display: flex; flex-direction: column; gap: 10px; }
-.emp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.emp-info { flex: 1; }
-.emp-name { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
-.emp-login { font-size: 12px; color: var(--muted); }
-.emp-badges { display: flex; gap: 6px; flex-wrap: wrap; }
-.emp-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
-.emp-badge.in-dash { background: rgba(0,184,148,0.15); color: var(--success); }
-.emp-badge.not-dash { background: var(--surface2); color: var(--muted); }
-.emp-badge.has-login { background: rgba(108,92,231,0.15); color: var(--accent2); }
-.emp-actions { display: flex; gap: 8px; }
+АНОМАЛИИ
+- Что необычно:
 
-/* MODAL */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
-.modal-overlay.show { display: flex; }
-.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 100%; max-width: 460px; }
-.modal-title { font-family: 'Unbounded', sans-serif; font-size: 16px; font-weight: 600; margin-bottom: 24px; }
-.modal-field { margin-bottom: 16px; }
-.modal-field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-.modal-field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; }
-.modal-field input:focus { border-color: var(--accent); }
-.modal-field .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
-.modal-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
-.modal-section-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; }
-.checkbox-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
-.checkbox-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
-.checkbox-row label { font-size: 14px; cursor: pointer; }
-.modal-actions { display: flex; gap: 10px; margin-top: 24px; }
-.modal-actions .btn { flex: 1; }
-</style>
-</head>
-<body>
+РЕКОМЕНДАЦИИ
+- Топ-3 конкретных действия для менеджера на следующий контакт:
 
-<div id="login-screen">
-  <div class="login-card">
-    <div class="login-logo">ServiceGuru</div>
-    <div class="login-title">SG_Транскрибация</div>
-    <div class="login-sub">Войдите чтобы начать</div>
-    <div class="field"><label>Логин</label><input type="text" id="username" placeholder="Введите логин"></div>
-    <div class="field"><label>Пароль</label><input type="password" id="password" placeholder="Введите пароль"></div>
-    <button class="btn" id="login-btn">Войти</button>
-    <div class="error-msg" id="login-error"></div>
-  </div>
-</div>
+В самом конце выведи ТОЛЬКО этот JSON без каких-либо обёрток, markdown, кавычек вокруг:
+{"scores":{"overall":0,"qualification":0,"presentation":0,"objections":0,"closing":0},"errors":["ошибка1"],"manager_tasks":["задание1"]}
 
-<div id="app-screen">
-  <header>
-    <div class="header-logo">SG_Транскрибация</div>
-    <div class="header-right">
-      <span class="header-role" id="header-role"></span>
-      <span class="header-username" id="header-username"></span>
-      <button class="logout-btn" id="logout-btn">Выйти</button>
-    </div>
-  </header>
+Замени нули на реальные оценки, ошибка1 и задание1 на реальные значения."""
 
-  <div class="nav-tabs">
-    <div class="nav-tab active" data-page="transcribe">🎙️ Анализ звонка</div>
-    <div class="nav-tab" data-page="dashboard">📊 Дашборд</div>
-    <div class="nav-tab hidden" data-page="employees" id="nav-employees">👥 Сотрудники</div>
-  </div>
+SALES_SCRIPT = """Ты аналитик отдела продаж B2B SaaS компании ServiceGuru (платформа обучения персонала для HoReCa).
 
-  <!-- TRANSCRIBE -->
-  <div class="page active" id="page-transcribe">
-    <div class="transcribe-layout">
-      <div class="upload-section">
+Проанализируй транскрипт звонка менеджера с потенциальным клиентом по основным тарифам ServiceGuru (полугодовой или годовой контракт).
 
-        <div class="mode-switcher">
-          <button class="mode-btn active" data-mode="sales_club">🔥 SG.Клуб</button>
-          <button class="mode-btn" data-mode="sales">📋 Продажа SG</button>
-          <button class="mode-btn" data-mode="renewal">🔄 Продление</button>
-          <button class="mode-btn" data-mode="general">🎙️ Аудио</button>
-        </div>
-        <div class="mode-desc" id="mode-desc" data-for="sales_club">Анализ по скрипту продаж ServiceGuru.Клуб — помесячная подписка, комьюнити, квалификация</div>
+ЛИД
+- Название компании:
+- Тип (МКК/КК/СКК):
+- Источник лида (если упомянут):
+- Размер команды (если упомянут):
 
-        <!-- SOURCE SWITCHER -->
-        <div class="source-switcher">
-          <button class="source-btn active" data-source="file">📁 Загрузить файл</button>
-          <button class="source-btn" data-source="url">🔗 Вставить ссылку</button>
-        </div>
+КВАЛИФИКАЦИЯ
+- Есть ли реальная боль с обучением или текучкой: да/нет/не выяснили
+- Есть ли бюджет или полномочия принять решение: да/нет/не выяснили
+- Есть ли срочность: да/нет/не выяснили
 
-        <!-- FILE SOURCE -->
-        <div id="source-file">
-          <div class="upload-zone" id="drop-zone">
-            <input type="file" id="file-input" accept=".mp3,.ogg,.wav,.m4a,.mp4,.webm,.flac">
-            <div class="upload-icon">🎙️</div>
-            <div class="upload-title">Загрузите аудиофайл</div>
-            <div class="upload-sub">Перетащите файл или нажмите для выбора</div>
-            <div class="upload-formats">MP3 · OGG · WAV · M4A · FLAC · до 200 MB</div>
-          </div>
-          <div class="selected-file" id="selected-file">
-            <div><div class="file-name" id="file-name"></div><div class="file-size" id="file-size"></div></div>
-          </div>
-        </div>
+ПОНИМАНИЕ ПРОДУКТА МЕНЕДЖЕРОМ
+- Объяснил ли платформу чётко: да/частично/нет
+- Назвал ли ключевые преимущества (аналитика, SCORM, мобильное приложение): да/частично/нет
+- Показал ли ценность для конкретного типа заведения клиента: да/нет
 
-        <!-- URL SOURCE -->
-        <div id="source-url" style="display:none">
-          <div class="url-input-wrap">
-            <div class="url-label">🔗 Прямая ссылка на аудиофайл</div>
-            <input type="text" id="audio-url" class="url-input" placeholder="https://example.com/call.mp3">
-            <div class="url-hint">Поддерживаются прямые ссылки на MP3, WAV, OGG, M4A, FLAC файлы</div>
-          </div>
-        </div>
+РЕАКЦИЯ КЛИЕНТА
+- Общий интерес (высокий/средний/низкий/нулевой):
+- Что зацепило клиента (если что-то):
+- Что отпугнуло или вызвало скепсис:
 
-        <div class="meta-row">
-          <div class="meta-field">
-            <label>👤 Менеджер</label>
-            <select id="manager-select" style="display:block">
-              <option value="">— Выберите менеджера —</option>
-            </select>
-            <div id="manager-fixed-wrap" style="display:none">
-              <div class="manager-fixed" id="manager-fixed-name"></div>
-            </div>
-          </div>
-          <div class="meta-field">
-            <label>🏢 Клиент (необязательно)</label>
-            <input type="text" id="client-name" placeholder="Название компании">
-          </div>
-        </div>
+ВОЗРАЖЕНИЯ
+- Перечисли все возражения дословно или близко к тексту:
+- Как менеджер закрыл каждое (закрыл/частично/не закрыл):
 
-        <div class="prompt-box">
-          <div class="prompt-label">💬 Дополнительный контекст <span>— необязательно</span></div>
-          <textarea id="user-prompt" placeholder="Уточнение: особенности клиента, на что обратить внимание..."></textarea>
-          <div class="prompt-chips">
-            <div class="chip" data-prompt="Менеджер новичок, первый месяц работы.">Новичок</div>
-            <div class="chip" data-prompt="Клиент уже отказывал ранее, повторный контакт.">Повторный</div>
-            <div class="chip" data-prompt="Крупная сеть, решение принимает комитет.">Крупная сеть</div>
-            <div class="chip" data-prompt="Обрати особое внимание на работу с ценовыми возражениями.">Цена</div>
-          </div>
-        </div>
+РЕЗУЛЬТАТ
+- Итог звонка (встреча/КП/отказ/перенос/думает):
+- Конкретная договорённость:
+- Дедлайн следующего контакта:
+- Какой тариф обсуждался (полугодовой/годовой/не уточнили):
 
-        <button class="btn" id="transcribe-btn" disabled>Расшифровать и проанализировать</button>
+КАЧЕСТВО РАБОТЫ МЕНЕДЖЕРА
+- Что сделал хорошо:
+- Что упустил:
+- Предложил ли демо или пробный период: да/нет
+- На каком этапе потерял инициативу (если потерял):
 
-        <div class="progress-wrap" id="progress-wrap">
-          <div style="font-size:13px;color:var(--muted)">Обработка файла</div>
-          <div class="progress-bar-bg"><div class="progress-bar" id="progress-bar"></div></div>
-          <div class="progress-status" id="progress-status">Загружаю файл…</div>
-        </div>
+ОЦЕНКА ЗВОНКА (1-10)
+- Общая оценка:
+- Квалификация клиента:
+- Презентация платформы:
+- Работа с возражениями:
+- Закрытие на следующий шаг:
 
-        <div class="result-card" id="result-card">
-          <div class="result-header">
-            <div class="result-title">✅ Готово</div>
-            <div class="result-badges">
-              <span class="mode-badge" id="result-mode-badge"></span>
-              <span class="score-badge" id="result-score-badge" style="display:none"></span>
-              <button class="copy-btn" id="copy-btn">📋 Копировать</button>
-            </div>
-          </div>
-          <div class="result-tabs">
-            <div class="rtab active" data-rtab="analysis">Анализ</div>
-            <div class="rtab" data-rtab="transcript">Транскрипция</div>
-          </div>
-          <div class="rtab-content active" id="rtab-analysis"><div class="result-text" id="result-summary"></div></div>
-          <div class="rtab-content" id="rtab-transcript"><div class="result-text" id="result-transcript"></div></div>
-        </div>
+АНОМАЛИИ
+- Что необычно:
 
-      </div>
+РЕКОМЕНДАЦИИ
+- Топ-3 конкретных действия для менеджера на следующий контакт:
 
-      <div class="history-section">
-        <div class="section-title">История</div>
-        <div id="history-list"><div class="history-empty">Звонков пока нет</div></div>
-      </div>
-    </div>
-  </div>
+В самом конце выведи ТОЛЬКО этот JSON без каких-либо обёрток, markdown, кавычек вокруг:
+{"scores":{"overall":0,"qualification":0,"presentation":0,"objections":0,"closing":0},"errors":["ошибка1"],"manager_tasks":["задание1"]}
 
-  <!-- DASHBOARD -->
-  <div class="page" id="page-dashboard">
-    <div class="dash-page">
-      <div class="dash-sub-tabs">
-        <button class="dash-sub-tab active" data-dash="all">🌐 Все</button>
-        <button class="dash-sub-tab" data-dash="sales_club">🔥 SG.Клуб</button>
-        <button class="dash-sub-tab" data-dash="sales">📋 Продажа SG</button>
-        <button class="dash-sub-tab" data-dash="renewal">🔄 Продление</button>
-      </div>
-      <div class="filters-bar">
-        <div class="filter-group">
-          <label>Менеджер</label>
-          <select id="filter-manager"><option value="">Все менеджеры</option></select>
-        </div>
-        <div class="filter-group">
-          <label>Оценка от</label>
-          <input type="number" id="filter-score-min" min="1" max="10" placeholder="1" style="width:80px">
-        </div>
-        <div class="filter-group">
-          <label>Оценка до</label>
-          <input type="number" id="filter-score-max" min="1" max="10" placeholder="10" style="width:80px">
-        </div>
-        <div class="filter-group">
-          <label>Дата от</label>
-          <input type="date" id="filter-date-from">
-        </div>
-        <div class="filter-group">
-          <label>Дата до</label>
-          <input type="date" id="filter-date-to">
-        </div>
-        <button class="filter-apply" onclick="applyFilters()">Применить</button>
-        <button class="filter-reset" onclick="resetFilters()">Сбросить</button>
-      </div>
-      <div id="dash-content">
-        <div class="empty-dash"><div class="empty-dash-icon">📊</div><div class="empty-dash-title">Загрузка…</div></div>
-      </div>
-    </div>
-  </div>
+Замени нули на реальные оценки, ошибка1 и задание1 на реальные значения."""
 
-  <!-- EMPLOYEES -->
-  <div class="page" id="page-employees">
-    <div class="employees-page">
-      <div class="page-header">
-        <div class="page-title">👥 Сотрудники</div>
-        <button class="btn btn-sm" onclick="openAddEmployee()">+ Добавить</button>
-      </div>
-      <div class="emp-list" id="emp-list">
-        <div class="history-empty">Сотрудников пока нет</div>
-      </div>
-    </div>
-  </div>
-</div>
+RENEWAL_SCRIPT = """Ты аналитик отдела клиентского сервиса B2B SaaS компании ServiceGuru (платформа обучения персонала для HoReCa).
 
-<!-- MODAL -->
-<div class="modal-overlay" id="modal-overlay">
-  <div class="modal">
-    <div class="modal-title" id="modal-title">Добавить сотрудника</div>
-    <div class="modal-field">
-      <label>Имя и фамилия *</label>
-      <input type="text" id="modal-emp-name" placeholder="Например: Анна Иванова">
-    </div>
-    <div class="checkbox-row">
-      <input type="checkbox" id="modal-in-dashboard" checked>
-      <label for="modal-in-dashboard">Включить в дашборд и список менеджеров</label>
-    </div>
-    <hr class="modal-divider">
-    <div class="modal-section-title">🔐 Доступ в систему</div>
-    <div class="modal-field">
-      <label>Логин</label>
-      <input type="text" id="modal-emp-login" placeholder="Например: anna.ivanova" autocomplete="off">
-      <div class="hint">Оставьте пустым если доступ не нужен</div>
-    </div>
-    <div class="modal-field">
-      <label id="modal-password-label">Пароль</label>
-      <input type="password" id="modal-emp-password" placeholder="Минимум 4 символа" autocomplete="new-password">
-      <div class="hint" id="modal-password-hint">Обязателен если указан логин</div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeModal()">Отмена</button>
-      <button class="btn" id="modal-save-btn" onclick="saveEmployee()">Сохранить</button>
-    </div>
-  </div>
-</div>
+Проанализируй транскрипт звонка менеджера с клиентом на тему продления подписки.
 
-<script>
-var selectedFile = null;
-var currentSummary = '';
-var currentTranscript = '';
-var currentMode = 'sales_club';
-var currentDash = 'all';
-var currentSource = 'file';
-var pollInterval = null;
-var isAdmin = false;
-var currentManagerName = null;
-var editingEmpId = null;
-var allEmployees = [];
+КЛИЕНТ
+- Название:
+- Тип (МКК/КК/СКК):
+- Срок работы с платформой:
+- Активность на платформе (высокая/средняя/низкая/не упоминалась):
 
-var modeDescriptions = {
-  sales_club: 'Анализ по скрипту продаж ServiceGuru.Клуб — помесячная подписка, комьюнити, квалификация',
-  sales: 'Анализ по скрипту продаж ServiceGuru — годовой/полугодовой контракт, презентация платформы',
-  renewal: 'Анализ звонка на продление — настроение клиента, риски оттока, работа с возражениями',
-  general: 'Расшифровка и общее саммери — темы, выводы, action items'
-};
-var modeLabels = { sales_club: '🔥 SG.Клуб', sales: '📋 Продажа SG', renewal: '🔄 Продление', general: '🎙️ Аудио' };
+НАСТРОЕНИЕ КЛИЕНТА
+- Общий тон (позитивный/нейтральный/негативный/агрессивный):
+- Готовность к диалогу (открыт/закрыт/уклоняется):
 
-// NAV
-document.querySelectorAll('.nav-tab').forEach(function(tab) {
-  tab.addEventListener('click', function() {
-    document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
-    document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
-    this.classList.add('active');
-    var page = this.dataset.page;
-    document.getElementById('page-' + page).classList.add('active');
-    if (page === 'dashboard') loadDashboard();
-    if (page === 'employees') loadEmployees();
-  });
-});
+СУТЬ РАЗГОВОРА
+- Главная боль или проблема клиента:
+- Что клиент ценит в платформе (если упомянул):
+- Что клиенту не нравится или мешает:
 
-// MODE
-document.querySelectorAll('.mode-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
-    this.classList.add('active');
-    currentMode = this.dataset.mode;
-    var desc = document.getElementById('mode-desc');
-    desc.textContent = modeDescriptions[currentMode];
-    desc.dataset.for = currentMode;
-  });
-});
+ВОЗРАЖЕНИЯ
+- Перечисли все возражения дословно или близко к тексту:
+- Как менеджер закрыл каждое (закрыл/частично/не закрыл):
 
-// SOURCE SWITCHER
-document.querySelectorAll('.source-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('.source-btn').forEach(function(b) { b.classList.remove('active'); });
-    this.classList.add('active');
-    currentSource = this.dataset.source;
-    document.getElementById('source-file').style.display = currentSource === 'file' ? 'block' : 'none';
-    document.getElementById('source-url').style.display = currentSource === 'url' ? 'block' : 'none';
-    if (currentSource === 'url') {
-      var urlVal = document.getElementById('audio-url').value.trim();
-      document.getElementById('transcribe-btn').disabled = !urlVal;
-    } else {
-      document.getElementById('transcribe-btn').disabled = !selectedFile;
+РЕЗУЛЬТАТ
+- Итог звонка (продлил/думает/отказал/перенёс решение):
+- Конкретная договорённость или следующий шаг:
+- Дедлайн следующего контакта (если назван):
+
+РИСК ОТВАЛА
+- Уровень риска (низкий/средний/высокий/критический):
+- Главная причина риска:
+
+КАЧЕСТВО РАБОТЫ МЕНЕДЖЕРА
+- Что сделал хорошо:
+- Что упустил или мог сделать лучше:
+- Использовал ли оффер помесячного тарифа Клуба (если клиент говорил о деньгах): да/нет/не было повода
+
+ОЦЕНКА ЗВОНКА (1-10)
+- Общая оценка:
+- Выявление причин риска оттока:
+- Работа с возражениями:
+- Использование ценности продукта:
+- Закрытие на продление:
+
+АНОМАЛИИ
+- Что необычно:
+
+РЕКОМЕНДАЦИИ
+- Топ-3 конкретных действия для менеджера на следующий контакт:
+
+В самом конце выведи ТОЛЬКО этот JSON без каких-либо обёрток, markdown, кавычек вокруг:
+{"scores":{"overall":0,"churn_detection":0,"objections":0,"value":0,"closing":0},"errors":["ошибка1"],"manager_tasks":["задание1"]}
+
+Замени нули на реальные оценки, ошибка1 и задание1 на реальные значения."""
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("user"):
+            return jsonify({"error": "unauthorized"}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+
+def get_duration(path):
+    try:
+        r = subprocess.run(["ffprobe","-v","error","-show_entries","format=duration","-of","default=noprint_wrappers=1:nokey=1",path], capture_output=True, text=True)
+        return float(r.stdout.strip())
+    except:
+        return 0
+
+
+def split_audio(path):
+    total = get_duration(path)
+    if total == 0:
+        return [path], 1
+    chunks = []
+    n = math.ceil(total / CHUNK_SEC)
+    for i in range(n):
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        tmp.close()
+        subprocess.run(["ffmpeg","-y","-ss",str(i*CHUNK_SEC),"-t",str(CHUNK_SEC),"-i",path,"-ar","16000","-ac","1","-b:a","32k",tmp.name], capture_output=True)
+        chunks.append(tmp.name)
+    return chunks, n
+
+
+def transcribe_single(path):
+    with open(path, "rb") as f:
+        r = openai_client.audio.transcriptions.create(model="whisper-1", file=f, response_format="text")
+    return r.strip() if isinstance(r, str) else r.text.strip()
+
+
+def transcribe(path):
+    size_mb = os.path.getsize(path) / (1024*1024)
+    if size_mb <= CHUNK_MB:
+        return transcribe_single(path), 1
+    chunks, n = split_audio(path)
+    try:
+        return " ".join(transcribe_single(c) for c in chunks), n
+    finally:
+        for c in chunks:
+            try: os.unlink(c)
+            except: pass
+
+
+def extract_json_from_text(text):
+    text_clean = re.sub(r'```json\s*', '', text)
+    text_clean = re.sub(r'```\s*', '', text_clean)
+    idx = text_clean.find('"scores"')
+    if idx == -1:
+        return {"scores": {"overall": 0}, "errors": [], "manager_tasks": []}
+    start = text_clean.rfind('{', 0, idx)
+    if start == -1:
+        return {"scores": {"overall": 0}, "errors": [], "manager_tasks": []}
+    depth = 0
+    end = -1
+    for i in range(start, len(text_clean)):
+        if text_clean[i] == '{':
+            depth += 1
+        elif text_clean[i] == '}':
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                break
+    if end == -1:
+        return {"scores": {"overall": 0}, "errors": [], "manager_tasks": []}
+    try:
+        result = json.loads(text_clean[start:end])
+        logger.info(f"Extracted metrics: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"JSON parse error: {e}")
+        return {"scores": {"overall": 0}, "errors": [], "manager_tasks": []}
+
+
+def run_analysis(script, system_prompt, transcript, user_prompt):
+    extra = f"\nДополнительный контекст: {user_prompt.strip()}\n" if user_prompt.strip() else ""
+    r = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": script + extra + "\n\nТРАНСКРИПТ ЗВОНКА:\n" + transcript}
+        ],
+        max_tokens=3000,
+    )
+    text = r.choices[0].message.content.strip()
+    logger.info(f"GPT tail: {text[-300:]}")
+    metrics = extract_json_from_text(text)
+    text_clean = re.sub(r'```json\s*', '', text)
+    text_clean = re.sub(r'```\s*', '', text_clean)
+    text_clean = re.sub(r'\{[^{}]*"scores".*?\}', '', text_clean, flags=re.DOTALL).strip()
+    return text_clean, metrics
+
+
+def analyze_general(transcript, user_prompt=""):
+    content = ("Контекст: " + user_prompt.strip() + "\n\n" if user_prompt.strip() else "") + \
+              "Проанализируй:\n1. КРАТКОЕ САММЕРИ\n2. КЛЮЧЕВЫЕ ТЕМЫ\n3. ГЛАВНЫЕ ВЫВОДЫ\n4. ACTION ITEMS" + \
+              ("\n5. АНАЛИЗ ПО ЗАПРОСУ" if user_prompt.strip() else "") + "\n\nТранскрипция:\n" + transcript
+    r = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "system", "content": "Ты помощник для анализа транскрипций. Отвечай на русском языке."}, {"role": "user", "content": content}],
+        max_tokens=2000,
+    )
+    return r.choices[0].message.content.strip(), {}
+
+
+def parse_metrics(m):
+    if isinstance(m, dict):
+        return m
+    if isinstance(m, str):
+        try:
+            return json.loads(m)
+        except:
+            pass
+    return {}
+
+
+def save_call(account, filename, mode, manager, prompt, summary, transcript, metrics, date):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO calls (account, filename, date, mode, manager, prompt, summary, transcript, metrics)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (account, filename, date, mode, manager, prompt, summary, transcript, json.dumps(metrics)))
+        conn.commit()
+        cur.close()
+        conn.close()
+        logger.info(f"Saved: {filename}, mode={mode}, manager={manager}, overall={metrics.get('scores',{}).get('overall',0)}")
+    except Exception as e:
+        logger.error(f"Save call error: {e}")
+
+
+def download_from_url(url):
+    parsed = urllib.parse.urlparse(url)
+    ext = os.path.splitext(parsed.path)[1].lower()
+    if ext not in SUPPORTED:
+        ext = ".mp3"
+    tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+    tmp.close()
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        with open(tmp.name, "wb") as f:
+            f.write(resp.read())
+    filename = os.path.basename(parsed.path) or "audio.mp3"
+    return tmp.name, filename, ext
+
+
+def run_job(job_id, tmp_path, filename, account, user_prompt, mode, manager_name):
+    try:
+        jobs[job_id]["status"] = "transcribing"
+        transcript, n = transcribe(tmp_path)
+        jobs[job_id]["status"] = "summarizing"
+        sys_prompt = "Ты аналитик B2B SaaS. Заполняй все поля максимально конкретно. В самом конце ответа выведи JSON с оценками — без markdown, без обёрток. Отвечай на русском."
+        if mode == "sales_club":
+            summary, metrics = run_analysis(SALES_CLUB_SCRIPT, sys_prompt, transcript, user_prompt)
+        elif mode == "sales":
+            summary, metrics = run_analysis(SALES_SCRIPT, sys_prompt, transcript, user_prompt)
+        elif mode == "renewal":
+            summary, metrics = run_analysis(RENEWAL_SCRIPT, sys_prompt, transcript, user_prompt)
+        else:
+            summary, metrics = analyze_general(transcript, user_prompt)
+        date = datetime.now().strftime("%d.%m.%Y %H:%M")
+        save_call(account, filename, mode, manager_name or "Не указан", user_prompt, summary, transcript, metrics, date)
+        jobs[job_id]["status"] = "done"
+        jobs[job_id]["result"] = {
+            "summary": summary, "transcript": transcript, "filename": filename,
+            "chunks": n, "prompt": user_prompt, "mode": mode,
+            "manager": manager_name or "Не указан", "metrics": metrics,
+        }
+    except Exception as e:
+        logger.exception(f"Job {job_id} failed")
+        jobs[job_id]["status"] = "error"
+        jobs[job_id]["error"] = str(e)
+    finally:
+        try: os.unlink(tmp_path)
+        except: pass
+
+
+def build_dashboard_for_modes(rows, modes, filter_manager=None, filter_score_min=None, filter_score_max=None, filter_date_from=None, filter_date_to=None):
+    scored = []
+    for r in rows:
+        if r.get("mode") not in modes:
+            continue
+        m = parse_metrics(r.get("metrics"))
+        overall = m.get("scores", {}).get("overall", 0)
+        if overall <= 0:
+            continue
+        if filter_manager and r.get("manager") != filter_manager:
+            continue
+        if filter_score_min is not None and overall < filter_score_min:
+            continue
+        if filter_score_max is not None and overall > filter_score_max:
+            continue
+        if filter_date_from and r.get("date", "") < filter_date_from:
+            continue
+        if filter_date_to and r.get("date", "") > filter_date_to:
+            continue
+        r["metrics"] = m
+        scored.append(r)
+
+    total_in_mode = len([r for r in rows if r.get("mode") in modes])
+    if not scored:
+        return {"managers": [], "top_errors": [], "total_calls": total_in_mode, "scored_calls": 0}
+
+    managers = {}
+    all_errors = []
+    for r in scored:
+        name = r.get("manager") or "Не указан"
+        if name not in managers:
+            managers[name] = {"name": name, "calls": 0, "scores": [], "errors": [], "tasks": []}
+        m = managers[name]
+        m["calls"] += 1
+        overall = r["metrics"]["scores"].get("overall", 0)
+        if overall > 0:
+            m["scores"].append(overall)
+        errs = r["metrics"].get("errors", [])
+        m["errors"].extend(errs)
+        all_errors.extend(errs)
+        m["tasks"].extend(r["metrics"].get("manager_tasks", []))
+
+    from collections import Counter
+    result_managers = []
+    for name, m in managers.items():
+        avg = round(sum(m["scores"]) / len(m["scores"]), 1) if m["scores"] else 0
+        result_managers.append({
+            "name": name, "calls": m["calls"], "avg_score": avg,
+            "top_errors": [e for e, _ in Counter(m["errors"]).most_common(3)],
+            "tasks": list(dict.fromkeys(m["tasks"]))[:3],
+        })
+    result_managers.sort(key=lambda x: x["avg_score"], reverse=True)
+    top_errors = [{"error": e, "count": c} for e, c in Counter(all_errors).most_common(5)]
+    return {"managers": result_managers, "top_errors": top_errors, "total_calls": total_in_mode, "scored_calls": len(scored)}
+
+
+@app.route("/")
+def index():
+    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
+    return open(html_path, encoding="utf-8").read()
+
+
+@app.route("/api/login", methods=["POST"])
+def login():
+    d = request.json
+    username = d.get("username", "")
+    password = d.get("password", "")
+    logger.info(f"Login attempt: username='{username}', is_admin_match={username == ADMIN_USER and password == ADMIN_PASS}")
+
+    if username == ADMIN_USER and password == ADMIN_PASS:
+        session["user"] = ADMIN_USER
+        session["account"] = ADMIN_USER
+        session["is_admin"] = True
+        session["manager_name"] = None
+        return jsonify({"ok": True, "username": ADMIN_USER, "is_admin": True, "manager_name": None})
+
+    emp = check_employee_login(username, password)
+    if emp:
+        session["user"] = username
+        session["account"] = emp["account"]
+        session["is_admin"] = False
+        session["manager_name"] = emp["name"]
+        return jsonify({"ok": True, "username": username, "is_admin": False, "manager_name": emp["name"]})
+
+    return jsonify({"error": "Неверный логин или пароль"}), 401
+
+
+@app.route("/api/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/me")
+def me():
+    user = session.get("user")
+    return jsonify({
+        "user": user,
+        "is_admin": session.get("is_admin", False),
+        "manager_name": session.get("manager_name")
+    })
+
+
+@app.route("/api/employees", methods=["GET"])
+@login_required
+def get_employees():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT id, name, in_dashboard, login FROM employees WHERE account=%s ORDER BY name", (session["account"],))
+        rows = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+        return jsonify({"employees": rows})
+    except Exception as e:
+        logger.error(f"Get employees error: {e}")
+        return jsonify({"employees": []})
+
+
+@app.route("/api/employees", methods=["POST"])
+@login_required
+def add_employee():
+    if not session.get("is_admin"):
+        return jsonify({"error": "Только администратор"}), 403
+    d = request.json
+    name = d.get("name", "").strip()
+    in_dashboard = d.get("in_dashboard", True)
+    login_val = d.get("login", "").strip() or None
+    password_val = d.get("password", "").strip() or None
+    if not name:
+        return jsonify({"error": "Имя обязательно"}), 400
+    if login_val and not password_val:
+        return jsonify({"error": "Если указан логин — пароль обязателен"}), 400
+    password_hash = hash_password(password_val) if password_val else None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        if login_val:
+            cur.execute("SELECT id FROM employees WHERE login=%s", (login_val,))
+            if cur.fetchone():
+                cur.close()
+                conn.close()
+                return jsonify({"error": "Такой логин уже существует"}), 400
+        cur.execute(
+            "INSERT INTO employees (account, name, in_dashboard, login, password_hash) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+            (session["account"], name, in_dashboard, login_val, password_hash)
+        )
+        new_id = cur.fetchone()["id"]
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"ok": True, "id": new_id})
+    except Exception as e:
+        logger.error(f"Add employee error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/employees/<int:emp_id>", methods=["PUT"])
+@login_required
+def update_employee(emp_id):
+    if not session.get("is_admin"):
+        return jsonify({"error": "Только администратор"}), 403
+    d = request.json
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        login_val = d.get("login", "").strip() or None
+        if login_val:
+            cur.execute("SELECT id FROM employees WHERE login=%s AND id!=%s", (login_val, emp_id))
+            if cur.fetchone():
+                cur.close()
+                conn.close()
+                return jsonify({"error": "Такой логин уже существует"}), 400
+        password_val = d.get("password", "").strip() or None
+        password_hash = hash_password(password_val) if password_val else None
+        if password_hash:
+            cur.execute(
+                "UPDATE employees SET name=%s, in_dashboard=%s, login=%s, password_hash=%s WHERE id=%s AND account=%s",
+                (d["name"], d["in_dashboard"], login_val, password_hash, emp_id, session["account"])
+            )
+        else:
+            cur.execute(
+                "UPDATE employees SET name=%s, in_dashboard=%s, login=%s WHERE id=%s AND account=%s",
+                (d["name"], d["in_dashboard"], login_val, emp_id, session["account"])
+            )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/employees/<int:emp_id>", methods=["DELETE"])
+@login_required
+def delete_employee(emp_id):
+    if not session.get("is_admin"):
+        return jsonify({"error": "Только администратор"}), 403
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM employees WHERE id=%s AND account=%s", (emp_id, session["account"]))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/transcribe", methods=["POST"])
+@login_required
+def transcribe_route():
+    mode = request.form.get("mode", "general")
+    user_prompt = request.form.get("prompt", "")
+    if session.get("manager_name"):
+        manager_name = session["manager_name"]
+    else:
+        manager_name = request.form.get("manager", "")
+
+    # Режим ссылки
+    url = request.form.get("url", "").strip()
+    if url:
+        try:
+            tmp_path, filename, ext = download_from_url(url)
+            size_mb = os.path.getsize(tmp_path) / (1024*1024)
+            if size_mb > MAX_MB:
+                os.unlink(tmp_path)
+                return jsonify({"error": f"Файл слишком большой ({size_mb:.0f} MB)"}), 400
+            job_id = hashlib.md5(f"{session['user']}{datetime.now()}".encode()).hexdigest()[:12]
+            jobs[job_id] = {"status": "starting", "result": None, "error": None}
+            t = threading.Thread(target=run_job, args=(job_id, tmp_path, filename, session["account"], user_prompt, mode, manager_name))
+            t.daemon = True
+            t.start()
+            return jsonify({"ok": True, "job_id": job_id})
+        except Exception as e:
+            logger.error(f"URL download error: {e}")
+            return jsonify({"error": f"Не удалось скачать файл: {str(e)}"}), 400
+
+    # Режим файла
+    if "file" not in request.files:
+        return jsonify({"error": "Файл не найден"}), 400
+    file = request.files["file"]
+    ext = Path(file.filename).suffix.lower()
+    if ext not in SUPPORTED:
+        return jsonify({"error": f"Формат {ext} не поддерживается"}), 400
+    content = file.read()
+    size_mb = len(content) / (1024*1024)
+    if size_mb > MAX_MB:
+        return jsonify({"error": f"Файл слишком большой ({size_mb:.0f} MB)"}), 400
+    tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+    tmp.write(content)
+    tmp.close()
+    job_id = hashlib.md5(f"{session['user']}{datetime.now()}".encode()).hexdigest()[:12]
+    jobs[job_id] = {"status": "starting", "result": None, "error": None}
+    t = threading.Thread(target=run_job, args=(job_id, tmp.name, file.filename, session["account"], user_prompt, mode, manager_name))
+    t.daemon = True
+    t.start()
+    return jsonify({"ok": True, "job_id": job_id})
+
+
+@app.route("/api/status/<job_id>")
+@login_required
+def job_status(job_id):
+    job = jobs.get(job_id)
+    if not job:
+        return jsonify({"error": "Не найдено"}), 404
+    return jsonify(job)
+
+
+@app.route("/api/history")
+@login_required
+def history():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT filename, date, mode, manager, prompt FROM calls WHERE account=%s ORDER BY created_at DESC LIMIT 50", (session["account"],))
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify({"history": [dict(r) for r in rows]})
+    except Exception as e:
+        logger.error(f"History error: {e}")
+        return jsonify({"history": []})
+
+
+@app.route("/api/dashboard/<dash_type>")
+@login_required
+def dashboard(dash_type):
+    filter_manager = request.args.get("manager")
+    filter_score_min = request.args.get("score_min", type=int)
+    filter_score_max = request.args.get("score_max", type=int)
+    filter_date_from = request.args.get("date_from")
+    filter_date_to = request.args.get("date_to")
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT mode, manager, metrics, date FROM calls WHERE account=%s ORDER BY created_at DESC", (session["account"],))
+        rows = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Dashboard error: {e}")
+        return jsonify({"managers": [], "top_errors": [], "total_calls": 0, "scored_calls": 0})
+    modes_map = {
+        "sales_club": ["sales_club"], "sales": ["sales"],
+        "renewal": ["renewal"], "all": ["sales_club", "sales", "renewal"],
     }
-  });
-});
+    modes = modes_map.get(dash_type, ["sales_club", "sales", "renewal"])
+    return jsonify(build_dashboard_for_modes(rows, modes, filter_manager, filter_score_min, filter_score_max, filter_date_from, filter_date_to))
 
-document.getElementById('audio-url').addEventListener('input', function() {
-  if (currentSource === 'url') {
-    document.getElementById('transcribe-btn').disabled = !this.value.trim();
-  }
-});
 
-// DASH SUB TABS
-document.querySelectorAll('.dash-sub-tab').forEach(function(tab) {
-  tab.addEventListener('click', function() {
-    document.querySelectorAll('.dash-sub-tab').forEach(function(t) { t.classList.remove('active'); });
-    this.classList.add('active');
-    currentDash = this.dataset.dash;
-    loadDashboard();
-  });
-});
+with app.app_context():
+    init_db()
 
-// RESULT TABS
-document.querySelectorAll('.rtab').forEach(function(tab) {
-  tab.addEventListener('click', function() {
-    document.querySelectorAll('.rtab').forEach(function(t) { t.classList.remove('active'); });
-    document.querySelectorAll('.rtab-content').forEach(function(c) { c.classList.remove('active'); });
-    this.classList.add('active');
-    document.getElementById('rtab-' + this.dataset.rtab).classList.add('active');
-  });
-});
 
-document.querySelectorAll('.chip').forEach(function(chip) {
-  chip.addEventListener('click', function() { document.getElementById('user-prompt').value = this.dataset.prompt; });
-});
-
-document.getElementById('login-btn').addEventListener('click', doLogin);
-document.getElementById('password').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
-document.getElementById('logout-btn').addEventListener('click', doLogout);
-document.getElementById('transcribe-btn').addEventListener('click', doTranscribe);
-document.getElementById('file-input').addEventListener('change', function() { if (this.files[0]) onFileSelect(this.files[0]); });
-document.getElementById('copy-btn').addEventListener('click', copyAll);
-
-var dz = document.getElementById('drop-zone');
-dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.style.borderColor = 'var(--accent)'; });
-dz.addEventListener('dragleave', function() { dz.style.borderColor = ''; });
-dz.addEventListener('drop', function(e) {
-  e.preventDefault(); dz.style.borderColor = '';
-  if (e.dataTransfer.files[0]) onFileSelect(e.dataTransfer.files[0]);
-});
-
-function onFileSelect(file) {
-  selectedFile = file;
-  document.getElementById('file-name').textContent = file.name;
-  document.getElementById('file-size').textContent = (file.size/(1024*1024)).toFixed(1) + ' MB';
-  document.getElementById('selected-file').classList.add('show');
-  document.getElementById('transcribe-btn').disabled = false;
-}
-
-async function doLogin() {
-  var btn = document.getElementById('login-btn');
-  var err = document.getElementById('login-error');
-  btn.disabled = true; btn.textContent = 'Вхожу…'; err.textContent = '';
-  try {
-    var r = await fetch('/api/login', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({username: document.getElementById('username').value, password: document.getElementById('password').value})
-    });
-    var d = await r.json();
-    if (d.ok) { showApp(d.username, d.is_admin, d.manager_name); }
-    else { err.textContent = d.error || 'Ошибка входа'; btn.disabled = false; btn.textContent = 'Войти'; }
-  } catch(e) { err.textContent = 'Ошибка соединения'; btn.disabled = false; btn.textContent = 'Войти'; }
-}
-
-async function doLogout() {
-  await fetch('/api/logout', {method: 'POST'});
-  document.getElementById('app-screen').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('login-btn').disabled = false;
-  document.getElementById('login-btn').textContent = 'Войти';
-}
-
-function showApp(username, admin, managerName) {
-  isAdmin = admin;
-  currentManagerName = managerName;
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-screen').style.display = 'flex';
-  document.getElementById('header-username').textContent = username;
-  document.getElementById('header-role').textContent = admin ? '👑 Администратор' : '👤 ' + (managerName || 'Сотрудник');
-  if (admin) document.getElementById('nav-employees').classList.remove('hidden');
-  if (managerName) {
-    document.getElementById('manager-select').style.display = 'none';
-    document.getElementById('manager-fixed-wrap').style.display = 'block';
-    document.getElementById('manager-fixed-name').textContent = '👤 ' + managerName;
-  }
-  loadEmployeesForSelect();
-  loadHistory();
-}
-
-async function loadEmployeesForSelect() {
-  var r = await fetch('/api/employees');
-  var d = await r.json();
-  allEmployees = d.employees || [];
-  var dashEmps = allEmployees.filter(function(e) { return e.in_dashboard; });
-
-  var sel = document.getElementById('manager-select');
-  var cur = sel.value;
-  sel.innerHTML = '<option value="">— Выберите менеджера —</option>';
-  dashEmps.forEach(function(e) {
-    var opt = document.createElement('option');
-    opt.value = e.name; opt.textContent = e.name;
-    sel.appendChild(opt);
-  });
-  if (cur) sel.value = cur;
-
-  var fsel = document.getElementById('filter-manager');
-  var fcur = fsel.value;
-  fsel.innerHTML = '<option value="">Все менеджеры</option>';
-  dashEmps.forEach(function(e) {
-    var opt = document.createElement('option');
-    opt.value = e.name; opt.textContent = e.name;
-    fsel.appendChild(opt);
-  });
-  if (fcur) fsel.value = fcur;
-}
-
-async function loadEmployees() {
-  if (!isAdmin) return;
-  var r = await fetch('/api/employees');
-  var d = await r.json();
-  allEmployees = d.employees || [];
-  var el = document.getElementById('emp-list');
-  if (allEmployees.length === 0) {
-    el.innerHTML = '<div class="history-empty">Сотрудников пока нет</div>'; return;
-  }
-  el.innerHTML = allEmployees.map(function(e) {
-    var loginBadge = e.login ? '<span class="emp-badge has-login">🔑 ' + e.login + '</span>' : '<span class="emp-badge not-dash">Нет доступа</span>';
-    var dashBadge = e.in_dashboard ? '<span class="emp-badge in-dash">✓ В дашборде</span>' : '<span class="emp-badge not-dash">Не в дашборде</span>';
-    return '<div class="emp-card">' +
-      '<div class="emp-info"><div class="emp-name">' + e.name + '</div></div>' +
-      '<div class="emp-badges">' + dashBadge + loginBadge + '</div>' +
-      '<div class="emp-actions">' +
-      '<button class="btn btn-sm btn-outline" onclick="openEditEmployee(' + e.id + ')">Изменить</button>' +
-      '<button class="btn btn-sm btn-danger" onclick="deleteEmployee(' + e.id + ')">Удалить</button>' +
-      '</div></div>';
-  }).join('');
-}
-
-function openAddEmployee() {
-  editingEmpId = null;
-  document.getElementById('modal-title').textContent = 'Добавить сотрудника';
-  document.getElementById('modal-emp-name').value = '';
-  document.getElementById('modal-emp-login').value = '';
-  document.getElementById('modal-emp-password').value = '';
-  document.getElementById('modal-in-dashboard').checked = true;
-  document.getElementById('modal-password-label').textContent = 'Пароль';
-  document.getElementById('modal-password-hint').textContent = 'Обязателен если указан логин';
-  document.getElementById('modal-overlay').classList.add('show');
-  setTimeout(function() { document.getElementById('modal-emp-name').focus(); }, 100);
-}
-
-function openEditEmployee(id) {
-  var emp = allEmployees.find(function(e) { return e.id === id; });
-  if (!emp) return;
-  editingEmpId = id;
-  document.getElementById('modal-title').textContent = 'Изменить сотрудника';
-  document.getElementById('modal-emp-name').value = emp.name;
-  document.getElementById('modal-emp-login').value = emp.login || '';
-  document.getElementById('modal-emp-password').value = '';
-  document.getElementById('modal-in-dashboard').checked = emp.in_dashboard;
-  document.getElementById('modal-password-label').textContent = 'Новый пароль';
-  document.getElementById('modal-password-hint').textContent = 'Оставьте пустым чтобы не менять пароль';
-  document.getElementById('modal-overlay').classList.add('show');
-}
-
-function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('show');
-}
-
-async function saveEmployee() {
-  var name = document.getElementById('modal-emp-name').value.trim();
-  var login = document.getElementById('modal-emp-login').value.trim();
-  var password = document.getElementById('modal-emp-password').value.trim();
-  var inDash = document.getElementById('modal-in-dashboard').checked;
-  if (!name) { alert('Введите имя сотрудника'); return; }
-  if (login && !password && !editingEmpId) { alert('Введите пароль для нового сотрудника'); return; }
-  var btn = document.getElementById('modal-save-btn');
-  btn.disabled = true;
-  try {
-    var url = editingEmpId ? '/api/employees/' + editingEmpId : '/api/employees';
-    var method = editingEmpId ? 'PUT' : 'POST';
-    var r = await fetch(url, {method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: name, in_dashboard: inDash, login: login, password: password})});
-    var d = await r.json();
-    if (d.ok) { closeModal(); loadEmployees(); loadEmployeesForSelect(); }
-    else { alert(d.error || 'Ошибка'); }
-  } catch(e) { alert('Ошибка соединения'); }
-  btn.disabled = false;
-}
-
-async function deleteEmployee(id) {
-  if (!confirm('Удалить сотрудника?')) return;
-  var r = await fetch('/api/employees/' + id, {method: 'DELETE'});
-  var d = await r.json();
-  if (d.ok) { loadEmployees(); loadEmployeesForSelect(); }
-  else alert(d.error || 'Ошибка');
-}
-
-async function doTranscribe() {
-  var btn = document.getElementById('transcribe-btn');
-  btn.disabled = true;
-  document.getElementById('result-card').classList.remove('show');
-  document.getElementById('progress-wrap').classList.add('show');
-  setProgress(5, 'Загружаю файл…');
-  var fd = new FormData();
-  fd.append('prompt', document.getElementById('user-prompt').value);
-  fd.append('mode', currentMode);
-  fd.append('manager', currentManagerName || document.getElementById('manager-select').value);
-
-  if (currentSource === 'url') {
-    var audioUrl = document.getElementById('audio-url').value.trim();
-    if (!audioUrl) {
-      document.getElementById('progress-wrap').classList.remove('show');
-      btn.disabled = false; return;
-    }
-    fd.append('url', audioUrl);
-    setProgress(10, 'Скачиваю файл по ссылке…');
-  } else {
-    if (!selectedFile) {
-      document.getElementById('progress-wrap').classList.remove('show');
-      btn.disabled = false; return;
-    }
-    fd.append('file', selectedFile);
-  }
-
-  try {
-    var r = await fetch('/api/transcribe', {method: 'POST', body: fd});
-    var d = await r.json();
-    if (!d.ok) {
-      document.getElementById('progress-wrap').classList.remove('show');
-      alert('Ошибка: ' + (d.error || 'Неизвестная ошибка'));
-      btn.disabled = false; return;
-    }
-    startPolling(d.job_id);
-  } catch(e) {
-    document.getElementById('progress-wrap').classList.remove('show');
-    alert('Ошибка соединения.');
-    btn.disabled = false;
-  }
-}
-
-function startPolling(jobId) {
-  var dots = 0;
-  setProgress(20, 'Начинаю расшифровку…');
-  pollInterval = setInterval(async function() {
-    try {
-      var r = await fetch('/api/status/' + jobId);
-      var d = await r.json();
-      if (d.status === 'transcribing') {
-        dots = (dots + 1) % 4;
-        setProgress(45, 'Расшифровываю аудио' + '...'.slice(0, dots+1));
-      } else if (d.status === 'summarizing') {
-        setProgress(80, 'Анализирую по скрипту…');
-      } else if (d.status === 'done') {
-        clearInterval(pollInterval);
-        setProgress(100, 'Готово!');
-        setTimeout(function() {
-          document.getElementById('progress-wrap').classList.remove('show');
-          showResult(d.result);
-          loadHistory();
-        }, 500);
-      } else if (d.status === 'error') {
-        clearInterval(pollInterval);
-        document.getElementById('progress-wrap').classList.remove('show');
-        alert('Ошибка: ' + (d.error || 'Неизвестная ошибка'));
-        document.getElementById('transcribe-btn').disabled = false;
-      }
-    } catch(e) {}
-  }, 3000);
-}
-
-function setProgress(pct, status) {
-  document.getElementById('progress-bar').style.width = pct + '%';
-  document.getElementById('progress-status').textContent = status;
-}
-
-function showResult(d) {
-  currentSummary = d.summary;
-  currentTranscript = d.transcript;
-  document.getElementById('result-summary').textContent = d.summary;
-  document.getElementById('result-transcript').textContent = d.transcript;
-  var badge = document.getElementById('result-mode-badge');
-  badge.textContent = modeLabels[d.mode] || d.mode;
-  badge.className = 'mode-badge ' + (d.mode || 'general');
-  var sb = document.getElementById('result-score-badge');
-  var score = d.metrics && d.metrics.scores && d.metrics.scores.overall;
-  if (score && score > 0) {
-    sb.textContent = '⭐ ' + score + '/10';
-    sb.className = 'score-badge ' + (score>=7?'high':score>=4?'mid':'low');
-    sb.style.display = '';
-  } else { sb.style.display = 'none'; }
-  document.getElementById('result-card').classList.add('show');
-  document.getElementById('transcribe-btn').disabled = false;
-  document.querySelectorAll('.rtab')[0].click();
-  var modeHeader = {'sales_club':'АНАЛИЗ — ПРОДАЖА SG.КЛУБ','sales':'АНАЛИЗ — ПРОДАЖА SG','renewal':'АНАЛИЗ — ПРОДЛЕНИЕ','general':'АНАЛИЗ АУДИО'}[d.mode]||'АНАЛИЗ';
-  var result = "==================================================\n"+modeHeader+"\n";
-  if (d.manager) result += "Менеджер: "+d.manager+"\n";
-  result += "==================================================\n\n"+d.summary+"\n\n\n==================================================\nПОЛНАЯ ТРАНСКРИПЦИЯ\n==================================================\n\n"+d.transcript;
-  var blob = new Blob([result], {type:'text/plain;charset=utf-8'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url; a.download = (d.filename||'call').replace(/\.[^.]+$/,'')+'_'+(d.mode||'result')+'.txt';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function copyAll() {
-  var text = "АНАЛИЗ\n\n"+currentSummary+"\n\n\nПОЛНАЯ ТРАНСКРИПЦИЯ\n\n"+currentTranscript;
-  navigator.clipboard.writeText(text).then(function() {
-    var btn = document.getElementById('copy-btn');
-    btn.textContent = '✅ Скопировано!';
-    setTimeout(function() { btn.textContent = '📋 Копировать'; }, 2000);
-  });
-}
-
-async function loadHistory() {
-  var r = await fetch('/api/history');
-  var d = await r.json();
-  var el = document.getElementById('history-list');
-  if (!d.history || d.history.length === 0) {
-    el.innerHTML = '<div class="history-empty">Звонков пока нет</div>'; return;
-  }
-  el.innerHTML = d.history.map(function(h) {
-    var mc = h.mode||'general';
-    var mb = h.manager ? '<span class="hbadge manager">'+h.manager+'</span>' : '';
-    return '<div class="history-item"><div class="history-item-name">'+h.filename+'</div><div class="history-item-date">'+h.date+'</div><div class="history-item-meta"><span class="hbadge '+mc+'">'+modeLabels[mc]+'</span>'+mb+'</div></div>';
-  }).join('');
-}
-
-function applyFilters() { loadDashboard(); }
-function resetFilters() {
-  document.getElementById('filter-manager').value = '';
-  document.getElementById('filter-score-min').value = '';
-  document.getElementById('filter-score-max').value = '';
-  document.getElementById('filter-date-from').value = '';
-  document.getElementById('filter-date-to').value = '';
-  loadDashboard();
-}
-
-async function loadDashboard() {
-  document.getElementById('dash-content').innerHTML = '<div class="empty-dash"><div class="empty-dash-icon">⏳</div><div class="empty-dash-title">Загружаю данные…</div></div>';
-  var params = new URLSearchParams();
-  var manager = document.getElementById('filter-manager').value;
-  var scoreMin = document.getElementById('filter-score-min').value;
-  var scoreMax = document.getElementById('filter-score-max').value;
-  var dateFrom = document.getElementById('filter-date-from').value;
-  var dateTo = document.getElementById('filter-date-to').value;
-  if (manager) params.append('manager', manager);
-  if (scoreMin) params.append('score_min', scoreMin);
-  if (scoreMax) params.append('score_max', scoreMax);
-  if (dateFrom) params.append('date_from', dateFrom.split('-').reverse().join('.'));
-  if (dateTo) params.append('date_to', dateTo.split('-').reverse().join('.')+' 23:59');
-  var url = '/api/dashboard/'+currentDash+(params.toString()?'?'+params.toString():'');
-  var r = await fetch(url);
-  var d = await r.json();
-  if (!d.scored_calls || d.scored_calls === 0) {
-    document.getElementById('dash-content').innerHTML = '<div class="empty-dash"><div class="empty-dash-icon">📊</div><div class="empty-dash-title">Нет данных</div><div class="empty-dash-sub">Загрузите звонки в режиме анализа — после обработки здесь появятся метрики</div></div>';
-    return;
-  }
-  var avgAll = d.managers.length > 0 ? (d.managers.reduce(function(s,m){return s+m.avg_score;},0)/d.managers.length).toFixed(1) : 0;
-  var avgClass = avgAll>=7?'success':avgAll>=4?'warn':'err';
-  var html = '<div class="dash-stats">';
-  html += '<div class="stat-card"><div class="stat-label">Всего звонков</div><div class="stat-value accent">'+d.total_calls+'</div></div>';
-  html += '<div class="stat-card"><div class="stat-label">Оценено</div><div class="stat-value">'+d.scored_calls+'</div></div>';
-  html += '<div class="stat-card"><div class="stat-label">Средняя оценка</div><div class="stat-value '+avgClass+'">'+avgAll+'</div></div>';
-  html += '<div class="stat-card"><div class="stat-label">Менеджеров</div><div class="stat-value">'+d.managers.length+'</div></div>';
-  html += '</div>';
-  if (d.top_errors && d.top_errors.length > 0) {
-    html += '<div class="dash-card"><div class="dash-card-title">🚨 Топ ошибок</div>';
-    d.top_errors.forEach(function(e) { html += '<div class="top-error-item"><span class="error-count">'+e.count+'x</span><span class="error-text">'+e.error+'</span></div>'; });
-    html += '</div>';
-  }
-  d.managers.forEach(function(m, i) {
-    var sc = m.avg_score>=7?'high':m.avg_score>=4?'mid':'low';
-    var medal = ['🥇','🥈','🥉'][i]||'';
-    html += '<div class="manager-card"><div class="manager-header"><div><div class="manager-name-title">'+medal+' '+m.name+'</div><div class="manager-calls">'+m.calls+' звонк'+(m.calls===1?'':m.calls<5?'а':'ов')+'</div></div>';
-    html += '<div class="big-score '+sc+'">'+m.avg_score+'<span style="font-size:16px;color:var(--muted)">/10</span></div></div>';
-    html += '<div class="manager-body"><div><div class="manager-section-title">⚠️ Главные ошибки</div>';
-    if (m.top_errors && m.top_errors.length > 0) {
-      html += '<ul class="error-list">'+m.top_errors.map(function(e){return '<li>'+e+'</li>';}).join('')+'</ul>';
-    } else { html += '<div style="font-size:13px;color:var(--muted)">Ошибок не выявлено</div>'; }
-    html += '</div><div><div class="manager-section-title">📋 Задания на отработку</div>';
-    if (m.tasks && m.tasks.length > 0) {
-      html += '<ul class="task-list">'+m.tasks.map(function(t){return '<li>'+t+'</li>';}).join('')+'</ul>';
-    } else { html += '<div style="font-size:13px;color:var(--muted)">Заданий нет</div>'; }
-    html += '</div></div></div>';
-  });
-  document.getElementById('dash-content').innerHTML = html;
-}
-
-(async function init() {
-  var r = await fetch('/api/me');
-  var d = await r.json();
-  if (d.user) showApp(d.user, d.is_admin, d.manager_name);
-})();
-</script>
-</body>
-</html>
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
