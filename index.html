@@ -67,6 +67,11 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .mode-desc[data-for="renewal"] { border-color: var(--renewal); }
 .mode-desc[data-for="general"] { border-color: var(--general); }
 
+/* SOURCE SWITCHER */
+.source-switcher { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; }
+.source-btn { flex: 1; padding: 9px; border: none; border-radius: 7px; font-family: 'Onest', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; background: none; color: var(--muted); transition: all 0.2s; text-align: center; }
+.source-btn.active { background: var(--surface2); color: var(--text); }
+
 .upload-zone { background: var(--surface); border: 2px dashed var(--border); border-radius: 16px; padding: 40px 32px; text-align: center; cursor: pointer; position: relative; transition: border-color 0.2s; }
 .upload-zone:hover { border-color: var(--accent); }
 .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
@@ -74,10 +79,17 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .upload-title { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 600; margin-bottom: 6px; }
 .upload-sub { font-size: 13px; color: var(--muted); }
 .upload-formats { font-size: 12px; color: var(--accent2); margin-top: 6px; }
-.selected-file { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: none; align-items: center; gap: 12px; }
+.selected-file { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: none; align-items: center; gap: 12px; margin-top: 12px; }
 .selected-file.show { display: flex; }
 .file-name { font-size: 14px; font-weight: 500; }
 .file-size { font-size: 12px; color: var(--muted); }
+
+/* URL INPUT */
+.url-input-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.url-label { font-size: 13px; font-weight: 500; color: var(--accent2); margin-bottom: 10px; }
+.url-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: var(--text); font-family: 'Onest', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; }
+.url-input:focus { border-color: var(--accent); }
+.url-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
 
 .meta-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .meta-field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
@@ -267,6 +279,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
   <div class="page active" id="page-transcribe">
     <div class="transcribe-layout">
       <div class="upload-section">
+
         <div class="mode-switcher">
           <button class="mode-btn active" data-mode="sales_club">🔥 SG.Клуб</button>
           <button class="mode-btn" data-mode="sales">📋 Продажа SG</button>
@@ -275,22 +288,39 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
         </div>
         <div class="mode-desc" id="mode-desc" data-for="sales_club">Анализ по скрипту продаж ServiceGuru.Клуб — помесячная подписка, комьюнити, квалификация</div>
 
-        <div class="upload-zone" id="drop-zone">
-          <input type="file" id="file-input" accept=".mp3,.ogg,.wav,.m4a,.mp4,.webm,.flac">
-          <div class="upload-icon">🎙️</div>
-          <div class="upload-title">Загрузите аудиофайл</div>
-          <div class="upload-sub">Перетащите файл или нажмите для выбора</div>
-          <div class="upload-formats">MP3 · OGG · WAV · M4A · FLAC · до 200 MB</div>
+        <!-- SOURCE SWITCHER -->
+        <div class="source-switcher">
+          <button class="source-btn active" data-source="file">📁 Загрузить файл</button>
+          <button class="source-btn" data-source="url">🔗 Вставить ссылку</button>
         </div>
 
-        <div class="selected-file" id="selected-file">
-          <div><div class="file-name" id="file-name"></div><div class="file-size" id="file-size"></div></div>
+        <!-- FILE SOURCE -->
+        <div id="source-file">
+          <div class="upload-zone" id="drop-zone">
+            <input type="file" id="file-input" accept=".mp3,.ogg,.wav,.m4a,.mp4,.webm,.flac">
+            <div class="upload-icon">🎙️</div>
+            <div class="upload-title">Загрузите аудиофайл</div>
+            <div class="upload-sub">Перетащите файл или нажмите для выбора</div>
+            <div class="upload-formats">MP3 · OGG · WAV · M4A · FLAC · до 200 MB</div>
+          </div>
+          <div class="selected-file" id="selected-file">
+            <div><div class="file-name" id="file-name"></div><div class="file-size" id="file-size"></div></div>
+          </div>
+        </div>
+
+        <!-- URL SOURCE -->
+        <div id="source-url" style="display:none">
+          <div class="url-input-wrap">
+            <div class="url-label">🔗 Прямая ссылка на аудиофайл</div>
+            <input type="text" id="audio-url" class="url-input" placeholder="https://example.com/call.mp3">
+            <div class="url-hint">Поддерживаются прямые ссылки на MP3, WAV, OGG, M4A, FLAC файлы</div>
+          </div>
         </div>
 
         <div class="meta-row">
-          <div class="meta-field" id="manager-field-wrap">
+          <div class="meta-field">
             <label>👤 Менеджер</label>
-            <select id="manager-select">
+            <select id="manager-select" style="display:block">
               <option value="">— Выберите менеджера —</option>
             </select>
             <div id="manager-fixed-wrap" style="display:none">
@@ -338,6 +368,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
           <div class="rtab-content active" id="rtab-analysis"><div class="result-text" id="result-summary"></div></div>
           <div class="rtab-content" id="rtab-transcript"><div class="result-text" id="result-transcript"></div></div>
         </div>
+
       </div>
 
       <div class="history-section">
@@ -404,7 +435,6 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <div class="modal-title" id="modal-title">Добавить сотрудника</div>
-
     <div class="modal-field">
       <label>Имя и фамилия *</label>
       <input type="text" id="modal-emp-name" placeholder="Например: Анна Иванова">
@@ -413,10 +443,8 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
       <input type="checkbox" id="modal-in-dashboard" checked>
       <label for="modal-in-dashboard">Включить в дашборд и список менеджеров</label>
     </div>
-
     <hr class="modal-divider">
     <div class="modal-section-title">🔐 Доступ в систему</div>
-
     <div class="modal-field">
       <label>Логин</label>
       <input type="text" id="modal-emp-login" placeholder="Например: anna.ivanova" autocomplete="off">
@@ -427,7 +455,6 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
       <input type="password" id="modal-emp-password" placeholder="Минимум 4 символа" autocomplete="new-password">
       <div class="hint" id="modal-password-hint">Обязателен если указан логин</div>
     </div>
-
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal()">Отмена</button>
       <button class="btn" id="modal-save-btn" onclick="saveEmployee()">Сохранить</button>
@@ -441,6 +468,7 @@ var currentSummary = '';
 var currentTranscript = '';
 var currentMode = 'sales_club';
 var currentDash = 'all';
+var currentSource = 'file';
 var pollInterval = null;
 var isAdmin = false;
 var currentManagerName = null;
@@ -455,6 +483,7 @@ var modeDescriptions = {
 };
 var modeLabels = { sales_club: '🔥 SG.Клуб', sales: '📋 Продажа SG', renewal: '🔄 Продление', general: '🎙️ Аудио' };
 
+// NAV
 document.querySelectorAll('.nav-tab').forEach(function(tab) {
   tab.addEventListener('click', function() {
     document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
@@ -467,6 +496,7 @@ document.querySelectorAll('.nav-tab').forEach(function(tab) {
   });
 });
 
+// MODE
 document.querySelectorAll('.mode-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
@@ -478,6 +508,30 @@ document.querySelectorAll('.mode-btn').forEach(function(btn) {
   });
 });
 
+// SOURCE SWITCHER
+document.querySelectorAll('.source-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.source-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    currentSource = this.dataset.source;
+    document.getElementById('source-file').style.display = currentSource === 'file' ? 'block' : 'none';
+    document.getElementById('source-url').style.display = currentSource === 'url' ? 'block' : 'none';
+    if (currentSource === 'url') {
+      var urlVal = document.getElementById('audio-url').value.trim();
+      document.getElementById('transcribe-btn').disabled = !urlVal;
+    } else {
+      document.getElementById('transcribe-btn').disabled = !selectedFile;
+    }
+  });
+});
+
+document.getElementById('audio-url').addEventListener('input', function() {
+  if (currentSource === 'url') {
+    document.getElementById('transcribe-btn').disabled = !this.value.trim();
+  }
+});
+
+// DASH SUB TABS
 document.querySelectorAll('.dash-sub-tab').forEach(function(tab) {
   tab.addEventListener('click', function() {
     document.querySelectorAll('.dash-sub-tab').forEach(function(t) { t.classList.remove('active'); });
@@ -487,6 +541,7 @@ document.querySelectorAll('.dash-sub-tab').forEach(function(tab) {
   });
 });
 
+// RESULT TABS
 document.querySelectorAll('.rtab').forEach(function(tab) {
   tab.addEventListener('click', function() {
     document.querySelectorAll('.rtab').forEach(function(t) { t.classList.remove('active'); });
@@ -553,18 +608,12 @@ function showApp(username, admin, managerName) {
   document.getElementById('app-screen').style.display = 'flex';
   document.getElementById('header-username').textContent = username;
   document.getElementById('header-role').textContent = admin ? '👑 Администратор' : '👤 ' + (managerName || 'Сотрудник');
-
-  if (admin) {
-    document.getElementById('nav-employees').classList.remove('hidden');
-  }
-
-  // Если сотрудник — показываем фиксированное имя вместо селекта
+  if (admin) document.getElementById('nav-employees').classList.remove('hidden');
   if (managerName) {
     document.getElementById('manager-select').style.display = 'none';
     document.getElementById('manager-fixed-wrap').style.display = 'block';
     document.getElementById('manager-fixed-name').textContent = '👤 ' + managerName;
   }
-
   loadEmployeesForSelect();
   loadHistory();
 }
@@ -573,26 +622,27 @@ async function loadEmployeesForSelect() {
   var r = await fetch('/api/employees');
   var d = await r.json();
   allEmployees = d.employees || [];
+  var dashEmps = allEmployees.filter(function(e) { return e.in_dashboard; });
 
   var sel = document.getElementById('manager-select');
-  var current = sel.value;
+  var cur = sel.value;
   sel.innerHTML = '<option value="">— Выберите менеджера —</option>';
-  allEmployees.filter(function(e) { return e.in_dashboard; }).forEach(function(e) {
+  dashEmps.forEach(function(e) {
     var opt = document.createElement('option');
     opt.value = e.name; opt.textContent = e.name;
     sel.appendChild(opt);
   });
-  if (current) sel.value = current;
+  if (cur) sel.value = cur;
 
   var fsel = document.getElementById('filter-manager');
-  var fcurrent = fsel.value;
+  var fcur = fsel.value;
   fsel.innerHTML = '<option value="">Все менеджеры</option>';
-  allEmployees.filter(function(e) { return e.in_dashboard; }).forEach(function(e) {
+  dashEmps.forEach(function(e) {
     var opt = document.createElement('option');
     opt.value = e.name; opt.textContent = e.name;
     fsel.appendChild(opt);
   });
-  if (fcurrent) fsel.value = fcurrent;
+  if (fcur) fsel.value = fcur;
 }
 
 async function loadEmployees() {
@@ -627,7 +677,7 @@ function openAddEmployee() {
   document.getElementById('modal-password-label').textContent = 'Пароль';
   document.getElementById('modal-password-hint').textContent = 'Обязателен если указан логин';
   document.getElementById('modal-overlay').classList.add('show');
-  document.getElementById('modal-emp-name').focus();
+  setTimeout(function() { document.getElementById('modal-emp-name').focus(); }, 100);
 }
 
 function openEditEmployee(id) {
@@ -660,8 +710,7 @@ async function saveEmployee() {
   try {
     var url = editingEmpId ? '/api/employees/' + editingEmpId : '/api/employees';
     var method = editingEmpId ? 'PUT' : 'POST';
-    var body = {name: name, in_dashboard: inDash, login: login, password: password};
-    var r = await fetch(url, {method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    var r = await fetch(url, {method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: name, in_dashboard: inDash, login: login, password: password})});
     var d = await r.json();
     if (d.ok) { closeModal(); loadEmployees(); loadEmployeesForSelect(); }
     else { alert(d.error || 'Ошибка'); }
@@ -678,17 +727,32 @@ async function deleteEmployee(id) {
 }
 
 async function doTranscribe() {
-  if (!selectedFile) return;
   var btn = document.getElementById('transcribe-btn');
   btn.disabled = true;
   document.getElementById('result-card').classList.remove('show');
   document.getElementById('progress-wrap').classList.add('show');
   setProgress(5, 'Загружаю файл…');
   var fd = new FormData();
-  fd.append('file', selectedFile);
   fd.append('prompt', document.getElementById('user-prompt').value);
   fd.append('mode', currentMode);
   fd.append('manager', currentManagerName || document.getElementById('manager-select').value);
+
+  if (currentSource === 'url') {
+    var audioUrl = document.getElementById('audio-url').value.trim();
+    if (!audioUrl) {
+      document.getElementById('progress-wrap').classList.remove('show');
+      btn.disabled = false; return;
+    }
+    fd.append('url', audioUrl);
+    setProgress(10, 'Скачиваю файл по ссылке…');
+  } else {
+    if (!selectedFile) {
+      document.getElementById('progress-wrap').classList.remove('show');
+      btn.disabled = false; return;
+    }
+    fd.append('file', selectedFile);
+  }
+
   try {
     var r = await fetch('/api/transcribe', {method: 'POST', body: fd});
     var d = await r.json();
@@ -707,14 +771,14 @@ async function doTranscribe() {
 
 function startPolling(jobId) {
   var dots = 0;
-  setProgress(15, 'Файл загружен, начинаю расшифровку…');
+  setProgress(20, 'Начинаю расшифровку…');
   pollInterval = setInterval(async function() {
     try {
       var r = await fetch('/api/status/' + jobId);
       var d = await r.json();
       if (d.status === 'transcribing') {
         dots = (dots + 1) % 4;
-        setProgress(40, 'Расшифровываю аудио' + '...'.slice(0, dots+1));
+        setProgress(45, 'Расшифровываю аудио' + '...'.slice(0, dots+1));
       } else if (d.status === 'summarizing') {
         setProgress(80, 'Анализирую по скрипту…');
       } else if (d.status === 'done') {
@@ -862,6 +926,3 @@ async function loadDashboard() {
 </script>
 </body>
 </html>
-```
-
-
