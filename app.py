@@ -1,4 +1,6 @@
 import os, math, subprocess, tempfile, json, hashlib, logging, threading, re
+import urllib.request
+import urllib.parse
 from datetime import datetime
 from pathlib import Path
 from functools import wraps
@@ -398,6 +400,21 @@ def save_call(account, filename, mode, manager, prompt, summary, transcript, met
         logger.error(f"Save call error: {e}")
 
 
+def download_from_url(url):
+    parsed = urllib.parse.urlparse(url)
+    ext = os.path.splitext(parsed.path)[1].lower()
+    if ext not in SUPPORTED:
+        ext = ".mp3"
+    tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+    tmp.close()
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        with open(tmp.name, "wb") as f:
+            f.write(resp.read())
+    filename = os.path.basename(parsed.path) or "audio.mp3"
+    return tmp.name, filename, ext
+
+
 def run_job(job_id, tmp_path, filename, account, user_prompt, mode, manager_name):
     try:
         jobs[job_id]["status"] = "transcribing"
@@ -642,6 +659,33 @@ def delete_employee(emp_id):
 @app.route("/api/transcribe", methods=["POST"])
 @login_required
 def transcribe_route():
+    mode = request.form.get("mode", "general")
+    user_prompt = request.form.get("prompt", "")
+    if session.get("manager_name"):
+        manager_name = session["manager_name"]
+    else:
+        manager_name = request.form.get("manager", "")
+
+    # Режим ссылки
+    url = request.form.get("url", "").strip()
+    if url:
+        try:
+            tmp_path, filename, ext = download_from_url(url)
+            size_mb = os.path.getsize(tmp_path) / (1024*1024)
+            if size_mb > MAX_MB:
+                os.unlink(tmp_path)
+                return jsonify({"error": f"Файл слишком большой ({size_mb:.0f} MB)"}), 400
+            job_id = hashlib.md5(f"{session['user']}{datetime.now()}".encode()).hexdigest()[:12]
+            jobs[job_id] = {"status": "starting", "result": None, "error": None}
+            t = threading.Thread(target=run_job, args=(job_id, tmp_path, filename, session["account"], user_prompt, mode, manager_name))
+            t.daemon = True
+            t.start()
+            return jsonify({"ok": True, "job_id": job_id})
+        except Exception as e:
+            logger.error(f"URL download error: {e}")
+            return jsonify({"error": f"Не удалось скачать файл: {str(e)}"}), 400
+
+    # Режим файла
     if "file" not in request.files:
         return jsonify({"error": "Файл не найден"}), 400
     file = request.files["file"]
@@ -652,12 +696,6 @@ def transcribe_route():
     size_mb = len(content) / (1024*1024)
     if size_mb > MAX_MB:
         return jsonify({"error": f"Файл слишком большой ({size_mb:.0f} MB)"}), 400
-    user_prompt = request.form.get("prompt", "")
-    mode = request.form.get("mode", "general")
-    if session.get("manager_name"):
-        manager_name = session["manager_name"]
-    else:
-        manager_name = request.form.get("manager", "")
     tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
     tmp.write(content)
     tmp.close()
