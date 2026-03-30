@@ -276,7 +276,6 @@ def transcribe(path):
 
 
 def extract_json_from_text(text):
-    # Убираем markdown блоки
     text_clean = re.sub(r'```json\s*', '', text)
     text_clean = re.sub(r'```\s*', '', text_clean)
     try:
@@ -323,6 +322,17 @@ def analyze_general(transcript, user_prompt=""):
         max_tokens=2000,
     )
     return r.choices[0].message.content.strip(), {}
+
+
+def parse_metrics(m):
+    if isinstance(m, dict):
+        return m
+    if isinstance(m, str):
+        try:
+            return json.loads(m)
+        except:
+            pass
+    return {}
 
 
 def save_call(account, filename, mode, manager, prompt, summary, transcript, metrics, date):
@@ -374,7 +384,15 @@ def run_job(job_id, tmp_path, filename, account, user_prompt, mode, manager_name
 
 
 def build_dashboard_for_modes(rows, modes):
-    scored = [r for r in rows if r.get("mode") in modes and r.get("metrics") and isinstance(r["metrics"], dict) and r["metrics"].get("scores", {}).get("overall", 0) > 0]
+    scored = []
+    for r in rows:
+        if r.get("mode") not in modes:
+            continue
+        m = parse_metrics(r.get("metrics"))
+        if m.get("scores", {}).get("overall", 0) > 0:
+            r["metrics"] = m
+            scored.append(r)
+
     total = len([r for r in rows if r.get("mode") in modes])
 
     if not scored:
