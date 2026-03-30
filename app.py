@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me")
 openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
-USERS = json.loads(os.environ.get("USERS", '{"admin": "admin123"}'))
-ADMIN_USER = os.environ.get("ADMIN_USER", list(USERS.keys())[0])
+ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
+ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin123")
 SUPPORTED = {".ogg", ".mp3", ".wav", ".m4a", ".mp4", ".webm", ".flac"}
 CHUNK_MB = 20
 MAX_MB = 200
@@ -52,15 +52,40 @@ def init_db():
                 account TEXT NOT NULL,
                 name TEXT NOT NULL,
                 in_dashboard BOOLEAN DEFAULT TRUE,
+                login TEXT,
+                password_hash TEXT,
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
+        try:
+            cur.execute("ALTER TABLE employees ADD COLUMN IF NOT EXISTS login TEXT")
+            cur.execute("ALTER TABLE employees ADD COLUMN IF NOT EXISTS password_hash TEXT")
+        except:
+            pass
         conn.commit()
         cur.close()
         conn.close()
         logger.info("DB initialized")
     except Exception as e:
         logger.error(f"DB init error: {e}")
+
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+def check_employee_login(login, password):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM employees WHERE login=%s AND password_hash=%s", (login, hash_password(password)))
+        emp = cur.fetchone()
+        cur.close()
+        conn.close()
+        return dict(emp) if emp else None
+    except Exception as e:
+        logger.error(f"Employee login check error: {e}")
+        return None
 
 
 SALES_CLUB_SCRIPT = """Ты аналитик отдела продаж B2B SaaS компании ServiceGuru (платформа обучения персонала для HoReCa).
@@ -240,15 +265,6 @@ def login_required(f):
     def decorated(*args, **kwargs):
         if not session.get("user"):
             return jsonify({"error": "unauthorized"}), 401
-        return f(*args, **kwargs)
-    return decorated
-
-
-def admin_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if session.get("user") != ADMIN_USER:
-            return jsonify({"error": "forbidden"}), 403
         return f(*args, **kwargs)
     return decorated
 
@@ -436,7 +452,6 @@ def build_dashboard_for_modes(rows, modes, filter_manager=None, filter_score_min
         scored.append(r)
 
     total_in_mode = len([r for r in rows if r.get("mode") in modes])
-
     if not scored:
         return {"managers": [], "top_errors": [], "total_calls": total_in_mode, "scored_calls": 0}
 
@@ -481,7 +496,7 @@ def login():
     d = request.json
     username = d.get("username", "")
     password = d.get("password", "")
-    logger.info(f"Login attempt: username='{username}', admin_user='{ADMIN_USER}', match={username == ADMIN_USER and password == ADMIN_PASS}")
+    logger.info(f"Login attempt: username='{username}', is_admin_match={username == ADMIN_USER and password == ADMIN_PASS}")
 
     if username == ADMIN_USER and password == ADMIN_PASS:
         session["user"] = ADMIN_USER
@@ -510,17 +525,20 @@ def logout():
 @app.route("/api/me")
 def me():
     user = session.get("user")
-    return jsonify({"user": user, "is_admin": user == ADMIN_USER if user else False})
+    return jsonify({
+        "user": user,
+        "is_admin": session.get("is_admin", False),
+        "manager_name": session.get("manager_name")
+    })
 
 
-# --- EMPLOYEES ---
 @app.route("/api/employees", methods=["GET"])
 @login_required
 def get_employees():
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("SELECT id, name, in_dashboard FROM employees WHERE account=%s ORDER BY name", (session["user"],))
+        cur.execute("SELECT id, name, in_dashboard, login FROM employees WHERE account=%s ORDER BY name", (session["account"],))
         rows = [dict(r) for r in cur.fetchall()]
         cur.close()
         conn.close()
@@ -533,17 +551,31 @@ def get_employees():
 @app.route("/api/employees", methods=["POST"])
 @login_required
 def add_employee():
-    if session.get("user") != ADMIN_USER:
-        return jsonify({"error": "Только администратор может добавлять сотрудников"}), 403
+    if not session.get("is_admin"):
+        return jsonify({"error": "Только администратор"}), 403
     d = request.json
     name = d.get("name", "").strip()
     in_dashboard = d.get("in_dashboard", True)
+    login_val = d.get("login", "").strip() or None
+    password_val = d.get("password", "").strip() or None
     if not name:
         return jsonify({"error": "Имя обязательно"}), 400
+    if login_val and not password_val:
+        return jsonify({"error": "Если указан логин — пароль обязателен"}), 400
+    password_hash = hash_password(password_val) if password_val else None
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("INSERT INTO employees (account, name, in_dashboard) VALUES (%s, %s, %s) RETURNING id", (session["user"], name, in_dashboard))
+        if login_val:
+            cur.execute("SELECT id FROM employees WHERE login=%s", (login_val,))
+            if cur.fetchone():
+                cur.close()
+                conn.close()
+                return jsonify({"error": "Такой логин уже существует"}), 400
+        cur.execute(
+            "INSERT INTO employees (account, name, in_dashboard, login, password_hash) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+            (session["account"], name, in_dashboard, login_val, password_hash)
+        )
         new_id = cur.fetchone()["id"]
         conn.commit()
         cur.close()
@@ -557,18 +589,31 @@ def add_employee():
 @app.route("/api/employees/<int:emp_id>", methods=["PUT"])
 @login_required
 def update_employee(emp_id):
-    if session.get("user") != ADMIN_USER:
+    if not session.get("is_admin"):
         return jsonify({"error": "Только администратор"}), 403
     d = request.json
     try:
         conn = get_db()
         cur = conn.cursor()
-        if "name" in d and "in_dashboard" in d:
-            cur.execute("UPDATE employees SET name=%s, in_dashboard=%s WHERE id=%s AND account=%s", (d["name"], d["in_dashboard"], emp_id, session["user"]))
-        elif "in_dashboard" in d:
-            cur.execute("UPDATE employees SET in_dashboard=%s WHERE id=%s AND account=%s", (d["in_dashboard"], emp_id, session["user"]))
-        elif "name" in d:
-            cur.execute("UPDATE employees SET name=%s WHERE id=%s AND account=%s", (d["name"], emp_id, session["user"]))
+        login_val = d.get("login", "").strip() or None
+        if login_val:
+            cur.execute("SELECT id FROM employees WHERE login=%s AND id!=%s", (login_val, emp_id))
+            if cur.fetchone():
+                cur.close()
+                conn.close()
+                return jsonify({"error": "Такой логин уже существует"}), 400
+        password_val = d.get("password", "").strip() or None
+        password_hash = hash_password(password_val) if password_val else None
+        if password_hash:
+            cur.execute(
+                "UPDATE employees SET name=%s, in_dashboard=%s, login=%s, password_hash=%s WHERE id=%s AND account=%s",
+                (d["name"], d["in_dashboard"], login_val, password_hash, emp_id, session["account"])
+            )
+        else:
+            cur.execute(
+                "UPDATE employees SET name=%s, in_dashboard=%s, login=%s WHERE id=%s AND account=%s",
+                (d["name"], d["in_dashboard"], login_val, emp_id, session["account"])
+            )
         conn.commit()
         cur.close()
         conn.close()
@@ -580,12 +625,12 @@ def update_employee(emp_id):
 @app.route("/api/employees/<int:emp_id>", methods=["DELETE"])
 @login_required
 def delete_employee(emp_id):
-    if session.get("user") != ADMIN_USER:
+    if not session.get("is_admin"):
         return jsonify({"error": "Только администратор"}), 403
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("DELETE FROM employees WHERE id=%s AND account=%s", (emp_id, session["user"]))
+        cur.execute("DELETE FROM employees WHERE id=%s AND account=%s", (emp_id, session["account"]))
         conn.commit()
         cur.close()
         conn.close()
@@ -609,13 +654,16 @@ def transcribe_route():
         return jsonify({"error": f"Файл слишком большой ({size_mb:.0f} MB)"}), 400
     user_prompt = request.form.get("prompt", "")
     mode = request.form.get("mode", "general")
-    manager_name = request.form.get("manager", "")
+    if session.get("manager_name"):
+        manager_name = session["manager_name"]
+    else:
+        manager_name = request.form.get("manager", "")
     tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
     tmp.write(content)
     tmp.close()
     job_id = hashlib.md5(f"{session['user']}{datetime.now()}".encode()).hexdigest()[:12]
     jobs[job_id] = {"status": "starting", "result": None, "error": None}
-    t = threading.Thread(target=run_job, args=(job_id, tmp.name, file.filename, session["user"], user_prompt, mode, manager_name))
+    t = threading.Thread(target=run_job, args=(job_id, tmp.name, file.filename, session["account"], user_prompt, mode, manager_name))
     t.daemon = True
     t.start()
     return jsonify({"ok": True, "job_id": job_id})
@@ -636,7 +684,7 @@ def history():
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("SELECT filename, date, mode, manager, prompt FROM calls WHERE account=%s ORDER BY created_at DESC LIMIT 50", (session["user"],))
+        cur.execute("SELECT filename, date, mode, manager, prompt FROM calls WHERE account=%s ORDER BY created_at DESC LIMIT 50", (session["account"],))
         rows = cur.fetchall()
         cur.close()
         conn.close()
@@ -654,23 +702,19 @@ def dashboard(dash_type):
     filter_score_max = request.args.get("score_max", type=int)
     filter_date_from = request.args.get("date_from")
     filter_date_to = request.args.get("date_to")
-
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("SELECT mode, manager, metrics, date FROM calls WHERE account=%s ORDER BY created_at DESC", (session["user"],))
+        cur.execute("SELECT mode, manager, metrics, date FROM calls WHERE account=%s ORDER BY created_at DESC", (session["account"],))
         rows = [dict(r) for r in cur.fetchall()]
         cur.close()
         conn.close()
     except Exception as e:
         logger.error(f"Dashboard error: {e}")
         return jsonify({"managers": [], "top_errors": [], "total_calls": 0, "scored_calls": 0})
-
     modes_map = {
-        "sales_club": ["sales_club"],
-        "sales": ["sales"],
-        "renewal": ["renewal"],
-        "all": ["sales_club", "sales", "renewal"],
+        "sales_club": ["sales_club"], "sales": ["sales"],
+        "renewal": ["renewal"], "all": ["sales_club", "sales", "renewal"],
     }
     modes = modes_map.get(dash_type, ["sales_club", "sales", "renewal"])
     return jsonify(build_dashboard_for_modes(rows, modes, filter_manager, filter_score_min, filter_score_max, filter_date_from, filter_date_to))
