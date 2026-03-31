@@ -14,12 +14,13 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me")
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin123")
 SUPPORTED = {".ogg", ".mp3", ".wav", ".m4a", ".mp4", ".webm", ".flac", ".mov", ".avi", ".mkv", ".m4v"}
 CHUNK_MB = 20
-MAX_MB = 200
+MAX_MB = 500
 CHUNK_SEC = (CHUNK_MB * 1024 * 1024 * 8) / (32 * 1000)
 jobs = {}
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
@@ -666,7 +667,6 @@ def transcribe_route():
     else:
         manager_name = request.form.get("manager", "")
 
-    # Режим ссылки
     url = request.form.get("url", "").strip()
     if url:
         try:
@@ -685,7 +685,6 @@ def transcribe_route():
             logger.error(f"URL download error: {e}")
             return jsonify({"error": f"Не удалось скачать файл: {str(e)}"}), 400
 
-    # Режим файла
     if "file" not in request.files:
         return jsonify({"error": "Файл не найден"}), 400
     file = request.files["file"]
