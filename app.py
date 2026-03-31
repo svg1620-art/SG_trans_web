@@ -17,7 +17,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "change-me")
 openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin123")
-SUPPORTED = {".ogg", ".mp3", ".wav", ".m4a", ".mp4", ".webm", ".flac"}
+SUPPORTED = {".ogg", ".mp3", ".wav", ".m4a", ".mp4", ".webm", ".flac", ".mov", ".avi", ".mkv", ".m4v"}
 CHUNK_MB = 20
 MAX_MB = 200
 CHUNK_SEC = (CHUNK_MB * 1024 * 1024 * 8) / (32 * 1000)
